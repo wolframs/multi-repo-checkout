@@ -9,12 +9,13 @@ This VS Code extension allows you to quickly switch or create branches across al
 - **Fallback to Default Branch**: If a local/remote branch doesn't exist and you don’t opt to create it, the extension checks out the user-defined default branch in that repository.
 - **Configurable Default Branch**: Define your preferred default branch name (e.g. `main` or `master`) in VS Code settings.
 
-## Manual Build & Installation
+## Manual VSIX Installation
 
-1. Clone or download this extension’s source code.
-2. Open the folder in VS Code.
-3. Run `npm install && npm run compile` (or use the VS Code debugger “Launch Extension”).
-4. A new Extension Development Host window will appear, where you can test or install it.
+1. Download the most recent [release](https://github.com/wolframs/multi-repo-checkout/releases/).
+2. Go to your VS Code Extensions.
+3. Open the "More Actions..." menu:
+![image](https://github.com/user-attachments/assets/f23643d9-02b5-4e7d-af21-8795279df25d)
+4. Select "Install from VSIX..." and open the downloaded release file.
 
 ## Usage
 
