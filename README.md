@@ -1,71 +1,44 @@
-# multi-repo-checkout README
+# Multi-Repo Branch Switcher
 
-This is the README for your extension "multi-repo-checkout". After writing up a brief description, we recommend including the following sections.
+This VS Code extension allows you to quickly switch or create branches across all repositories in a multi-repo workspace.
 
 ## Features
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+- **Branch Switching**: Select any existing branch to check out simultaneously across all repositories.
+- **Branch Creation**: Create a new branch in every repository at once.
+- **Fallback to Default Branch**: If a local/remote branch doesn't exist and you don’t opt to create it, the extension checks out the user-defined default branch in that repository.
+- **Configurable Default Branch**: Define your preferred default branch name (e.g. `main` or `master`) in VS Code settings.
 
-For example if there is an image subfolder under your extension project workspace:
+## Manual Build & Installation
 
-\!\[feature X\]\(images/feature-x.png\)
+1. Clone or download this extension’s source code.
+2. Open the folder in VS Code.
+3. Run `npm install && npm run compile` (or use the VS Code debugger “Launch Extension”).
+4. A new Extension Development Host window will appear, where you can test or install it.
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+## Usage
 
-## Requirements
+1. Press <kbd>Ctrl+Shift+P</kbd> (Windows/Linux) or <kbd>Cmd+Shift+P</kbd> (macOS) to open the Command Palette.
+2. Run **Multi-Repo Branch Switcher: Switch Branches**.
+3. Choose an existing branch from the list or select **Create New Branches for All Repos** to define a new branch name.
+4. The extension will:
+   - Check out the branch if it already exists locally.
+   - Check out a remote-tracking branch if it exists on `origin`.
+   - Prompt to create a new branch if neither is found.
+   - Otherwise, it will fall back to the configured default branch.
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+## Configuration
 
-## Extension Settings
+Open your VS Code settings (`Settings → Extensions → Multi Repo Branch Switcher` or in `settings.json`) and set:
+```json
+{
+  "multiRepoBranchSwitcher.defaultBranchName": "main"
+}
+```
+By default, this is `"master"`, but you can override it based on your workflow.
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+## Feedback & Contributing
 
-For example:
+Feel free to open an issue or pull request on the repository if you encounter a problem or have a suggestion.
 
-This extension contributes the following settings:
-
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
-
-## Known Issues
-
-Calling out known issues can help limit users opening duplicate issues against your extension.
-
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+Happy coding!

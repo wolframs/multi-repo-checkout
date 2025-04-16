@@ -15,7 +15,7 @@
     "commands": [
       {
         "command": "multi-repo-branch-switcher.switchBranches",
-        "title": "Switch All Repos to Branch"
+        "title": "Multi Repo Branch Switcher: Switch Branches"
       }
     ],
     "configuration": {
