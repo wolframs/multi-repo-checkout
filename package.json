@@ -3,6 +3,14 @@
   "displayName": "multi-repo-branch-switcher",
   "description": "Effortlessly manages branch checkouts in a multi-repository workspace.",
   "version": "0.0.1",
+  "author": {
+    "name": "Wolfram S."
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wolframs/multi-repo-checkout"
+  },
   "engines": {
     "vscode": "^1.99.0"
   },
