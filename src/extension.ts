@@ -11,7 +11,7 @@ interface Git {
 }
 
 interface ApiRepository {
-    rootUri: vscode.Uri;
+    root: string;
     getRefs(opts?: { contains?: string }): Promise<Ref[]>;
     checkout(branch: string, createBranch?: boolean): Thenable<void>;
     state: {
@@ -35,7 +35,7 @@ enum RefType {
 export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(vscode.commands.registerCommand(
         'multi-repo-branch-switcher.switchBranches',
-        async () => {
+        async () => {            
             const gitExtension = vscode.extensions.getExtension<{ model: Git }>('vscode.git');
             if (!gitExtension) {
                 vscode.window.showErrorMessage('Unable to load Git extension');
@@ -55,21 +55,14 @@ export function activate(context: vscode.ExtensionContext) {
             }
 
             // Collect all unique branch names from all repositories
-            const allBranches = new Set<string>();
-            for (const repo of repos) {
-                const refs = await repo.getRefs();
-                if (!repo.getRefs) {
-                    vscode.window.showErrorMessage(`Unable to get refs from repository at ${repo.rootUri.fsPath}`);
-                }
-                refs.forEach((ref: Ref) => {
-                    if (ref.type === RefType.Head) {
-                        allBranches.add(ref.name);
-                    }
-                    if (ref.type === RefType.RemoteHead && ref.remote === 'origin') {
-                        allBranches.add(ref.name.substring('origin/'.length));
-                    }
-                });
-            }
+            let allBranches = new Set<string>();
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Window,
+                title: '$(git-fetch) Collecting repository refs',
+                cancellable: false
+            }, async (progress) => {
+                allBranches = await collectAllBranches(repos, progress);
+            });
 
             // Show branch selection quick pick
             const branchName = await showBranchQuickPick(allBranches);
@@ -78,10 +71,57 @@ export function activate(context: vscode.ExtensionContext) {
             // Process all repositories
             const createNewBranch = branchName.startsWith('$(plus)');
             const branchNameWithoutPlus = createNewBranch ? branchName.substring('$(plus)'.length) : branchName;
-            const results = await processRepositories(repos, branchNameWithoutPlus, createNewBranch);
-            showFinalReport(results);
+
+            let finalResults: string[] = [];
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: `Switching branches`,
+                cancellable: false
+            }, async (progress) => {
+                finalResults = await processRepositories(
+                    repos,
+                    branchNameWithoutPlus,
+                    createNewBranch,
+                    progress
+                );
+            });
+
+            showFinalReport(finalResults);
         }
     ));
+}
+
+async function collectAllBranches(
+    repos: ApiRepository[],
+    progress: vscode.Progress<{ message?: string; increment?: number }>
+): Promise<Set<string>> {
+    const allBranches = new Set<string>();
+    const total = repos.length;
+    let completed = 1;
+
+    for (const repo of repos) {
+        progress.report({
+            message: `Collecting from ${repo.root.split('\\').pop()}...`,
+            increment: (completed / total) * 100
+        });
+
+        for (const repo of repos) {
+            const refs = await repo.getRefs();
+            if (!repo.getRefs) {
+                vscode.window.showErrorMessage(`Unable to get refs from repository ${repo.root.split('\\').pop()}`);
+            }
+            refs.forEach((ref: Ref) => {
+                if (ref.type === RefType.Head) {
+                    allBranches.add(ref.name);
+                }
+                if (ref.type === RefType.RemoteHead && ref.remote === 'origin') {
+                    allBranches.add(ref.name.substring('origin/'.length));
+                }
+            });
+        }
+        completed++;
+    }
+    return allBranches;
 }
 
 async function showBranchQuickPick(allBranches: Set<string>): Promise<string | undefined> {
@@ -91,7 +131,6 @@ async function showBranchQuickPick(allBranches: Set<string>): Promise<string | u
 
     const newBranchesLbl = '$(plus) Create New Branches for All Repos';
 
-    // Add "Create New Branch" option
     branchItems.push({
         label: newBranchesLbl,
         description: 'Create a new branch in all repositories'
@@ -117,13 +156,25 @@ async function showBranchQuickPick(allBranches: Set<string>): Promise<string | u
     return selected.label;
 }
 
-async function processRepositories(repos: any[], branchName: string, doCreateNewBranch: boolean): Promise<string[]> {
+async function processRepositories(
+    repos: ApiRepository[],
+    branchName: string,
+    doCreateNewBranch: boolean,
+    progress: vscode.Progress<{ message?: string; increment?: number }>
+): Promise<string[]> {
     const results: string[] = [];
+    const total = repos.length;
+    let completed = 1;
 
     for (const repo of repos) {
-        // remove '\\' from the path
         const repoPath = repo.root;
         const repoName = repoPath.split('\\').pop();
+
+        progress.report({
+            message: `${repoName}`,
+            increment: (completed / total) * 100
+        });
+
         try {
             const [localExists, remoteExists] = await Promise.all([
                 checkBranchExists(repoPath, branchName, 'local'),
@@ -141,16 +192,21 @@ async function processRepositories(repos: any[], branchName: string, doCreateNew
                     await createBranch(repoPath, branchName);
                     results.push(`✔ ${repoName}: Created new local branch`);
                 } else {
-                    // Switch to master branch of current repo
-                    processRepositories([repo], getConfiguredDefaultBranch(), doCreateNewBranch);
+                    // Switch to default branch
+                    await processRepositories(
+                        [repo],
+                        getConfiguredDefaultBranch(),
+                        false, // not creating new branch
+                        progress
+                    );
                     results.push(`✔ ${repoName}: Switched to ${getConfiguredDefaultBranch()} branch`);
                 }
             }
         } catch (error: any) {
             results.push(`❌ ${repoName}: ${error.message}`);
         }
+        completed++;
     }
-
     return results;
 }
 
@@ -201,8 +257,8 @@ async function executeCommand(repoPath: string, command: string, errorPrefix: st
 
 function showFinalReport(results: string[]): void {
     vscode.window.showInformationMessage(
-        results.join('\n'),
-        { modal: true }
+        `Checkouts complete: ${results.join('. ')}.`,
+        { modal: false }
     );
 }
 
