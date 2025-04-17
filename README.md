@@ -6,7 +6,7 @@ This VS Code extension allows you to quickly switch or create branches across al
 
 - **Branch Switching**: Select any existing branch to check out simultaneously across all repositories.
 - **Branch Creation**: Create a new branch in every repository at once.
-- **Fallback to Default Branch**: If a local/remote branch doesn't exist and you don’t opt to create it, the extension checks out the user-defined default branch in that repository.
+- **Fallback to Default Branch**: If a local/remote branch doesn't exist, the extension checks out the user-defined default branch in that repository.
 - **Configurable Default Branch**: Define your preferred default branch name (e.g. `main` or `master`) in VS Code settings.
 
 ## Usage
@@ -19,7 +19,6 @@ This VS Code extension allows you to quickly switch or create branches across al
    - For each repository, it will:
      - Check out the branch if it already exists locally.
      - Check out a remote-tracking branch if it exists on `origin`.
-     - Prompt to create a new branch if neither is found.
      - Otherwise, it will fall back to the configured default branch.
 
 ## Configuration
