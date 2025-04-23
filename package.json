@@ -3,7 +3,7 @@
   "displayName": "Multi-Repo Branch Switcher",
   "description": "Effortlessly manages branch checkouts in a multi-repository workspace.",
   "icon": "multi-repo-branch-switcher-icon_128.png",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "WolframS",
   "author": {
     "name": "Wolfram S."
