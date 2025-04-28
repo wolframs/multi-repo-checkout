@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import { exec } from "child_process";
-import { isWorkingTreeClean } from "./is-working-tree-clean";
+import { isRepoClean } from "./is-repo-clean";
 import { ApiRepository, Git } from "./types";
 import { collectAllBranches } from "./collect-all-branches";
 
@@ -150,10 +150,10 @@ async function processRepositories(
         });
 
         try {
-            const clean = await isWorkingTreeClean(repoPath);
+            const clean = await isRepoClean(repoPath);
             if (!clean) {
                 results.push(
-                    `⚠️ ${repoName}: Working tree has uncommitted changes, skipped`
+                    `⚠️ ${repoName}: Uncommitted changes or commits not pushed – skipped`
                 );
                 continue;
             }
@@ -196,7 +196,7 @@ async function processRepositories(
 
         completed++;
     }
-    
+
     await sortResultsByStatus(results);
     return results;
 }
