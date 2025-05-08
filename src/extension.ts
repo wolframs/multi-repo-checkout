@@ -71,17 +71,22 @@ export function activate(context: vscode.ExtensionContext) {
 
                 let finalResults: string[] = [];
                 await vscode.window.withProgress(
-                    {
-                        location: vscode.ProgressLocation.Notification,
-                        title: `Switching branches`,
-                        cancellable: false,
-                    },
-                    async (progress) => {
-                        finalResults = await processRepositories(
-                            repos,
-                            branchNameWithoutPlus,
-                            createNewBranch,
-                            progress
+                    { location: vscode.ProgressLocation.SourceControl },
+                    async () => {
+                        await vscode.window.withProgress(
+                            {
+                                location: vscode.ProgressLocation.Notification,
+                                title: `Switching branches`,
+                                cancellable: false,
+                            },
+                            async (notification_progress) => {
+                                finalResults = await processRepositories(
+                                    repos,
+                                    branchNameWithoutPlus,
+                                    createNewBranch,
+                                    notification_progress
+                                );
+                            }
                         );
                     }
                 );
@@ -134,7 +139,7 @@ async function processRepositories(
     repos: ApiRepository[],
     branchName: string,
     doCreateNewBranch: boolean,
-    progress: vscode.Progress<{ message?: string; increment?: number }>
+    progress?: vscode.Progress<{ message?: string; increment?: number }>
 ): Promise<string[]> {
     const results: string[] = [];
     const total = repos.length;
@@ -144,9 +149,9 @@ async function processRepositories(
         const repoPath = repo.root;
         const repoName = repoPath.split("\\").pop();
 
-        progress.report({
+        progress?.report({
             message: `${repoName}`,
-            increment: (1 / total) * 100,
+            increment: (1 / total) * 90,
         });
 
         try {
@@ -183,7 +188,7 @@ async function processRepositories(
                         [repo],
                         getConfiguredDefaultBranch(),
                         false, // not creating new branch
-                        progress
+                        undefined // no progress report for this sub-process
                     );
                     results.push(
                         `✅ ${repoName}: Switched to ${getConfiguredDefaultBranch()} branch`
@@ -195,6 +200,14 @@ async function processRepositories(
         }
 
         completed++;
+    }
+
+    progress?.report({
+        message: "Registering changes...",
+        increment: 5,
+    });
+    if (progress) {
+        await new Promise((resolve) => setTimeout(resolve, 1500)); // Wait for VSCode's git extension to register the changes
     }
 
     await sortResultsByStatus(results);

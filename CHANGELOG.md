@@ -4,6 +4,10 @@ All notable changes to the "multi-repo-checkout" extension will be documented in
 
 ## Released
 
+### [0.1.5]
+- Bugfix [Progress indication not accurate when checking out repo branches](https://github.com/wolframs/multi-repo-checkout/issues/4)
+- Added SCM Progress Indicator
+
 ### [0.1.4]
 - Better repo cleanliness check
 
