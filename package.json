@@ -40,6 +40,26 @@
           "type": "string",
           "default": "master",
           "description": "Name of the default branch (e.g. 'main' or 'master')."
+        },
+        "multiRepoBranchSwitcher.registerChangesDelay": {
+          "type": "number",
+          "default": 1500,
+          "description": "Delay (in milliseconds) after branch switch commands have finished before considering VSCode's source control management to be ready again."
+        },
+        "multiRepoBranchSwitcher.autoReloadWindow": {
+          "type": "string",
+					"enum": [
+						"Always",
+						"Ask",
+            "Never"
+					],
+					"enumDescriptions": [
+						"Always reload the window after successful branch switches.",
+						"Ask whether to reload the window after successful branch switches.",
+            "Never reload the window after successful branch switches."
+					],
+					"default": "Ask",
+          "description": "Define whether to automatically reload the window after successful branch switches."
         }
       }
     }
