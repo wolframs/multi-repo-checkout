@@ -3,11 +3,11 @@ import { exec } from "child_process";
 import { isRepoClean } from "./is-repo-clean";
 import { ApiRepository, Git } from "./types";
 import { collectAllBranches } from "./collect-all-branches";
-
-export function getConfiguredDefaultBranch(): string {
-    const config = vscode.workspace.getConfiguration("multiRepoBranchSwitcher");
-    return config.get<string>("defaultBranchName", "master");
-}
+import {
+    getConfigAutoReloadWindow,
+    getConfigDefaultBranch,
+    getConfigRegisterChangesDelay,
+} from "./config";
 
 export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
@@ -92,6 +92,13 @@ export function activate(context: vscode.ExtensionContext) {
                 );
 
                 showFinalReport(finalResults);
+
+                const resultsWithIssues = finalResults.filter(
+                    (result) => result.startsWith("❌") || result.startsWith("⚠️")
+                );
+                if (resultsWithIssues.length === 0) {
+                    await triggerReloadWindow();
+                }
             }
         )
     );
@@ -186,12 +193,12 @@ async function processRepositories(
                     // Switch to default branch
                     await processRepositories(
                         [repo],
-                        getConfiguredDefaultBranch(),
+                        getConfigDefaultBranch(),
                         false, // not creating new branch
                         undefined // no progress report for this sub-process
                     );
                     results.push(
-                        `✅ ${repoName}: Switched to ${getConfiguredDefaultBranch()} branch`
+                        `✅ ${repoName}: Switched to ${getConfigDefaultBranch()} branch`
                     );
                 }
             }
@@ -207,7 +214,11 @@ async function processRepositories(
         increment: 5,
     });
     if (progress) {
-        await new Promise((resolve) => setTimeout(resolve, 1500)); // Wait for VSCode's git extension to register the changes
+        if (getConfigAutoReloadWindow() !== "Never") {
+            await new Promise((resolve) =>
+                setTimeout(resolve, getConfigRegisterChangesDelay())
+            ); // Wait for VSCode's source control management to register the changes
+        }
     }
 
     await sortResultsByStatus(results);
@@ -313,6 +324,23 @@ function showFinalReport(results: string[]): void {
         `Checkouts complete: ${results.join(" ··· ")}`,
         { modal: false }
     );
+}
+
+async function triggerReloadWindow() {
+    const autoReloadWindow = getConfigAutoReloadWindow();
+    if (autoReloadWindow === "Always") {
+        vscode.commands.executeCommand("workbench.action.reloadWindow");
+    } else if (autoReloadWindow === "Ask") {
+        const reload = await vscode.window.showInformationMessage(
+            "Do you want to reload the window?",
+            { modal: false },
+            { title: "Yes" },
+            { title: "No" }
+        );
+        if (reload?.title === "Yes") {
+            vscode.commands.executeCommand("workbench.action.reloadWindow");
+        }
+    }
 }
 
 export function deactivate() {}
