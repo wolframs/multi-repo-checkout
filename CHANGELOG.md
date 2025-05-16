@@ -4,7 +4,7 @@ All notable changes to the "multi-repo-checkout" extension will be documented in
 
 ## Released
 
-### [0.1.5]
+### [0.1.6]
 - Feature [Auto reload window after succesful checkouts (with settings flag)](https://github.com/wolframs/multi-repo-checkout/issues/2)
 - Added configuration to configure "Registering changes..." delay
 
