@@ -5,31 +5,36 @@ This VS Code extension allows you to quickly switch or create branches across al
 ## Features
 
 - **Branch Switching**: Select any existing branch to check out simultaneously across all repositories.
-- **Branch Creation**: Create a new branch in every repository at once.
 - **Fallback to Default Branch**: If a local/remote branch doesn't exist, the extension checks out the user-defined default branch in that repository.
+- **Branch Creation**: Create a new branch in every repository at once.
 - **Configurable Default Branch**: Define your preferred default branch name (e.g. `main` or `master`) in VS Code settings.
+- **Auto Reload Window**: Automatically reload the window after successful branch switches, get asked whether to do so or disabled.
 
 ## Usage
 
-1. Press <kbd>Ctrl+Shift+P</kbd> (Windows/Linux) or <kbd>Cmd+Shift+P</kbd> (macOS) to open the Command Palette.
+1. Press <kbd>Ctrl+Shift+P</kbd> or <kbd>F1</kbd> (Windows/Linux) or <kbd>Cmd+Shift+P</kbd> (macOS) to open the Command Palette.
 2. Run **Multi-Repo Branch Switcher: Switch Branches**.
+   - The extension will get info on all local and remote branches of all repositories.
 3. Choose an existing branch from the list or select **Create New Branches for All Repos** to define a new branch name.
-4. The extension will:
-   - Get info on all local and remote branches of all repositories.
-   - For each repository, it will:
-     - Check out the branch if it already exists locally.
-     - Check out a remote-tracking branch if it exists on `origin`.
-     - Otherwise, it will fall back to the configured default branch.
+4. For each repository, the extension will:
+   - Check out the branch if it already exists locally.
+   - Check out a remote-tracking branch if it exists on `origin`.
+   - Otherwise, it will fall back to the configured default branch.
+5. Choose whether to auto reload the window, if so configured.
 
 ## Configuration
 
 Open your VS Code settings (`Settings → Extensions → Multi Repo Branch Switcher` or in `settings.json`) and set:
 ```json
 {
-  "multiRepoBranchSwitcher.defaultBranchName": "main"
+  "multiRepoBranchSwitcher.defaultBranchName": "main",
+  "multiRepoBranchSwitcher.registerChangesDelay": 1500,
+  "multiRepoBranchSwitcher.autoReloadWindow": "Ask", // "Always", "Never"
 }
 ```
-By default, this is `"master"`, but you can override it based on your workflow.
+By default, the default branch is `"master"`, but you can override it based on your workflow.
+
+
 
 ## Feedback & Contributing
 
