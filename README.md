@@ -10,6 +10,7 @@ This VS Code extension allows you to quickly switch or create branches across al
 - **Fallback to Default Branch**: If a local/remote branch doesn't exist, the extension checks out the user-defined default branch in that repository.
 - **Branch Creation**: Create a new branch in every repository at once.
 - **Configurable Default Branch**: Define your preferred default branch name (e.g. `main` or `master`) in VS Code settings.
+- **Auto Pull After Checkout**: Automatically pull updates from the remote branch of each repository after successful branch switches, get asked whether to do so or disabled.
 - **Auto Reload Window**: Automatically reload the window after successful branch switches, get asked whether to do so or disabled.
 
 ## Usage
@@ -21,17 +22,22 @@ This VS Code extension allows you to quickly switch or create branches across al
    - The extension will get info on all local and remote branches of all repositories.
 
 3. Choose an existing branch from the list or select **Create New Branches for All Repos** to define a new branch name.
-   - ![usage 2](https://raw.githubusercontent.com/wolframs/multi-repo-checkout/refs/heads/main/img/usage-2.png)
    - You can filter the branches by typing in the command palette input:
-   - ![usage 3](https://raw.githubusercontent.com/wolframs/multi-repo-checkout/refs/heads/main/img/usage-3.png)
+  
+      ![usage 3](https://raw.githubusercontent.com/wolframs/multi-repo-checkout/refs/heads/main/img/usage-3.png)
 
-4. For each repository, the extension will:
+1. For each repository, the extension will:
    - Check out the branch if it already exists locally.
    - Check out a remote-tracking branch if it exists on `origin`.
    - Otherwise, it will fall back to the configured default branch.
 
-5. Choose whether to auto reload the window, if so configured.
-   - ![usage 3](https://raw.githubusercontent.com/wolframs/multi-repo-checkout/refs/heads/main/img/usage-complete.png)
+2. Choose whether to pull the most recent changes from each remote branch, if so configured
+   
+   ![usage 4](https://raw.githubusercontent.com/wolframs/multi-repo-checkout/refs/heads/main/img/usage-4.png)
+
+3. Choose whether to reload the window, if so configured.
+   
+   ![usage complete](https://raw.githubusercontent.com/wolframs/multi-repo-checkout/refs/heads/main/img/usage-complete.png)
 
 ## Configuration
 
@@ -41,9 +47,10 @@ Open your VS Code settings (`Settings → Extensions → Multi Repo Branch Switc
 
 ```json
 {
-  "multiRepoBranchSwitcher.defaultBranchName": "main",
-  "multiRepoBranchSwitcher.registerChangesDelay": 1500,
-  "multiRepoBranchSwitcher.autoReloadWindow": "Ask", // "Always", "Never"
+   "multiRepoBranchSwitcher.autoPullBranchUpdates": "Ask", // "Always", "Never"
+   "multiRepoBranchSwitcher.autoReloadWindow": "Ask", // "Always", "Never"
+   "multiRepoBranchSwitcher.defaultBranchName": "main",
+   "multiRepoBranchSwitcher.registerChangesDelay": 1500,
 }
 ```
 By default, the default branch is `"master"`, but you can override it based on your workflow.

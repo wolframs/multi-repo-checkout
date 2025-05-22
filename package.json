@@ -3,7 +3,7 @@
   "displayName": "Multi-Repo Branch Switcher",
   "description": "Effortlessly manages branch checkouts in a multi-repository workspace.",
   "icon": "multi-repo-branch-switcher-icon_128.png",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "publisher": "WolframS",
   "author": {
     "name": "Wolfram S."
@@ -60,6 +60,21 @@
 					],
 					"default": "Ask",
           "description": "Define whether to automatically reload the window after successful branch switches."
+        },
+        "multiRepoBranchSwitcher.autoPullBranchUpdates": {
+          "type": "string",
+					"enum": [
+						"Always",
+						"Ask",
+            "Never"
+					],
+					"enumDescriptions": [
+						"Always pull updates from remote branch after successful branch switches.",
+						"Ask whether to pull updates from remote branch after successful branch switches.",
+            "Never pull updates from remote branch after successful branch switches."
+					],
+					"default": "Ask",
+          "description": "Define whether to automatically pull updates from remote branch after successful branch switches."
         }
       }
     }
