@@ -14,3 +14,8 @@ export function getConfigAutoReloadWindow(): string {
     const config = vscode.workspace.getConfiguration("multiRepoBranchSwitcher");
     return config.get<string>("autoReloadWindow", "Ask");
 }
+
+export function getConfigAutoPullBranchUpdates(): string {
+    const config = vscode.workspace.getConfiguration("multiRepoBranchSwitcher");
+    return config.get<string>("autoPullBranchUpdates", "Ask");
+}
