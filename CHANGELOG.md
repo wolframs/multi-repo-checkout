@@ -4,6 +4,22 @@ All notable changes to the "multi-repo-checkout" extension will be documented in
 
 ## Released
 
+### [0.2.0]
+- Feature [Delete stale local branches with date cutoff](https://github.com/wolframs/multi-repo-checkout/issues/8)
+  - New command: "Multi-Repo Branch Switcher: Delete Stale Local Branches"
+  - Configurable cutoff days (default: 14 days)
+  - Protected branch patterns to prevent deletion of important branches
+  - Dry-run mode for previewing deletions
+  - Skips repositories with uncommitted changes
+- Feature [Quick switch to default branch](https://github.com/wolframs/multi-repo-checkout/issues/9)
+  - New command: "Multi-Repo Branch Switcher: Switch to Default Branch"
+  - Fast path without enumerating all refs
+  - Automatic detection of default branch from remote HEAD or common names
+  - Handles remote-only branches by creating tracking branches
+- Bugfix [Reload prompt appears only after pull completion](https://github.com/wolframs/multi-repo-checkout/issues/12)
+  - Reload window prompt now waits for all pull operations to complete
+  - Added settling delay to ensure source control is ready before prompting
+
 ### [0.1.8]
 - Enhancement [Auto Pull after checkout if possible](https://github.com/wolframs/multi-repo-checkout/issues/10)
 - Move functional code out of extension.ts to separate .ts files
