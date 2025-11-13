@@ -7,13 +7,17 @@ This VS Code extension allows you to quickly switch or create branches across al
 ## Features
 
 - **Branch Switching**: Select any existing branch to check out simultaneously across all repositories.
+- **Quick Switch to Default Branch**: Fast path to switch all repositories to the default branch without enumerating all refs (Issue #9).
+- **Delete Stale Local Branches**: Automatically clean up old local branches based on a configurable date cutoff, with protected branch patterns (Issue #8).
 - **Fallback to Default Branch**: If a local/remote branch doesn't exist, the extension checks out the user-defined default branch in that repository.
 - **Branch Creation**: Create a new branch in every repository at once.
 - **Configurable Default Branch**: Define your preferred default branch name (e.g. `main` or `master`) in VS Code settings.
 - **Auto Pull After Checkout**: Automatically pull updates from the remote branch of each repository after successful branch switches, get asked whether to do so or disabled.
-- **Auto Reload Window**: Automatically reload the window after successful branch switches, get asked whether to do so or disabled.
+- **Auto Reload Window**: Automatically reload the window after successful branch switches, get asked whether to do so or disabled. The reload prompt now appears only after all pulls have completed (Issue #12).
 
 ## Usage
+
+### Switch Branches
 
 1. Press <kbd>Ctrl+Shift+P</kbd> or <kbd>F1</kbd> (Windows/Linux) or <kbd>Cmd+Shift+P</kbd> (macOS) to open the Command Palette.
    ![usage 1](https://raw.githubusercontent.com/wolframs/multi-repo-checkout/refs/heads/main/img/usage-1.png)
@@ -39,6 +43,27 @@ This VS Code extension allows you to quickly switch or create branches across al
    
    ![usage complete](https://raw.githubusercontent.com/wolframs/multi-repo-checkout/refs/heads/main/img/usage-complete.png)
 
+### Quick Switch to Default Branch
+
+For a faster workflow when you just want to switch all repositories to the default branch:
+
+1. Press <kbd>Ctrl+Shift+P</kbd> (or <kbd>Cmd+Shift+P</kbd> on macOS) to open the Command Palette.
+2. Run **Multi-Repo Branch Switcher: Switch to Default Branch**.
+   - This command skips branch enumeration and directly switches to the configured default branch (or detects it automatically).
+   - Handles cases where the branch exists only on remote by creating a tracking branch.
+
+### Delete Stale Local Branches
+
+To clean up old local branches across all repositories:
+
+1. Press <kbd>Ctrl+Shift+P</kbd> (or <kbd>Cmd+Shift+P</kbd> on macOS) to open the Command Palette.
+2. Run **Multi-Repo Branch Switcher: Delete Stale Local Branches**.
+   - The extension will identify branches older than the configured cutoff (default: 14 days).
+   - Protected branches (matching patterns like `main`, `master`, `develop`) are never deleted.
+   - Repositories with uncommitted changes are skipped.
+   - A confirmation prompt appears before deletion (unless dry-run mode is enabled).
+   - Results are logged to the VS Code Output channel.
+
 ## Configuration
 
 Open your VS Code settings (`Settings → Extensions → Multi Repo Branch Switcher` or in `settings.json`) and set:
@@ -47,13 +72,23 @@ Open your VS Code settings (`Settings → Extensions → Multi Repo Branch Switc
 
 ```json
 {
-   "multiRepoBranchSwitcher.autoPullBranchUpdates": "Ask", // "Always", "Never"
-   "multiRepoBranchSwitcher.autoReloadWindow": "Ask", // "Always", "Never"
+   "multiRepoBranchSwitcher.autoPullBranchUpdates": "Ask", // "Always", "Ask", "Never"
+   "multiRepoBranchSwitcher.autoReloadWindow": "Ask", // "Always", "Ask", "Never"
    "multiRepoBranchSwitcher.defaultBranchName": "main",
    "multiRepoBranchSwitcher.registerChangesDelay": 1500,
+   "multiRepoBranchSwitcher.prune.cutoffDays": 14,
+   "multiRepoBranchSwitcher.prune.protected": ["^(main|master|develop)$"],
+   "multiRepoBranchSwitcher.prune.dryRun": false
 }
 ```
-By default, the default branch is `"master"`, but you can override it based on your workflow.
+
+#### Configuration Options
+
+- **`multiRepoBranchSwitcher.defaultBranchName`**: Name of the default branch (default: `"master"`). Used when switching to default branch or as fallback.
+- **`multiRepoBranchSwitcher.registerChangesDelay`**: Delay in milliseconds after branch operations before considering source control ready (default: `1500`).
+- **`multiRepoBranchSwitcher.prune.cutoffDays`**: Number of days after which local branches are considered stale (default: `14`).
+- **`multiRepoBranchSwitcher.prune.protected`**: Array of regex patterns for branches that should never be deleted (default: `["^(main|master|develop)$"]`).
+- **`multiRepoBranchSwitcher.prune.dryRun`**: If `true`, only preview which branches would be deleted without actually deleting them (default: `false`).
 
 
 
