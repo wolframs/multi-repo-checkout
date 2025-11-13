@@ -30,6 +30,16 @@
         "command": "multi-repo-branch-switcher.switchBranches",
         "title": "Multi Repo Branch Switcher: Switch Branches",
         "icon": "$(git-branch)"
+      },
+      {
+        "command": "multi-repo-branch-switcher.deleteStaleBranches",
+        "title": "Multi-Repo Branch Switcher: Delete Stale Local Branches",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "multi-repo-branch-switcher.switchToDefaultBranch",
+        "title": "Multi-Repo Branch Switcher: Switch to Default Branch",
+        "icon": "$(home)"
       }
     ],
     "configuration": {
@@ -75,6 +85,24 @@
 					],
 					"default": "Ask",
           "description": "Define whether to automatically pull updates from remote branch after successful branch switches."
+        },
+        "multiRepoBranchSwitcher.prune.cutoffDays": {
+          "type": "number",
+          "default": 14,
+          "description": "Number of days after which local branches are considered stale and eligible for deletion."
+        },
+        "multiRepoBranchSwitcher.prune.protected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["^(main|master|develop)$"],
+          "description": "Array of regex patterns matching branch names that should never be deleted."
+        },
+        "multiRepoBranchSwitcher.prune.dryRun": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, only preview which branches would be deleted without actually deleting them."
         }
       }
     }
