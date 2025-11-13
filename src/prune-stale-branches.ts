@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import { exec } from "child_process";
+import { exec, execFile } from "child_process";
 import { ApiRepository, Git } from "./types";
 import {
     getConfigPruneCutoffDays,
@@ -196,8 +196,13 @@ async function getLocalBranchesWithDates(
     repoPath: string
 ): Promise<BranchInfo[]> {
     return new Promise((resolve, reject) => {
-        exec(
-            "git for-each-ref --format='%(refname:short)|%(committerdate:iso)' refs/heads/",
+        execFile(
+            "git",
+            [
+                "for-each-ref",
+                "--format=%(refname:short)|%(committerdate:iso)",
+                "refs/heads/",
+            ],
             { cwd: repoPath },
             (error, stdout) => {
                 if (error) {
