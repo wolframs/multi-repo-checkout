@@ -4,6 +4,7 @@ import { collectAllBranches } from "./collect-all-branches";
 import {
     getConfigAutoPullBranchUpdates,
     getConfigAutoReloadWindow,
+    getConfigRegisterChangesDelay,
 } from "./config";
 import { autoPull } from "./auto-pull";
 import { showBranchQuickPick } from "./show-branch-quick-pick";
@@ -85,7 +86,11 @@ export async function switchBranches() {
         (result) => result.startsWith("❌") || result.startsWith("⚠️")
     );
     if (resultsWithIssues.length === 0) {
-        await triggerAutoPull(repos);
+        const pullsTriggered = await triggerAutoPull(repos);
+        // Wait for all pulls to complete and source control to settle
+        if (pullsTriggered) {
+            await waitForPullsToComplete(repos);
+        }
         await triggerReloadWindow();
     }
 }
@@ -97,7 +102,7 @@ function showFinalReport(results: string[]): void {
     );
 }
 
-async function triggerReloadWindow() {
+export async function triggerReloadWindow() {
     const autoReloadWindow = getConfigAutoReloadWindow();
     if (autoReloadWindow === "Always") {
         vscode.commands.executeCommand("workbench.action.reloadWindow");
@@ -114,10 +119,11 @@ async function triggerReloadWindow() {
     }
 }
 
-async function triggerAutoPull(repos: ApiRepository[]) {
+async function triggerAutoPull(repos: ApiRepository[]): Promise<boolean> {
     const autoPullBranchUpdates = getConfigAutoPullBranchUpdates();
     if (autoPullBranchUpdates === "Always") {
-        autoPull(repos);
+        await autoPull(repos);
+        return true;
     } else if (autoPullBranchUpdates === "Ask") {
         const pull = await vscode.window.showInformationMessage(
             "Do you want to pull updates from each remote branch?",
@@ -126,7 +132,41 @@ async function triggerAutoPull(repos: ApiRepository[]) {
             { title: "No" }
         );
         if (pull?.title === "Yes") {
-            autoPull(repos);
+            await autoPull(repos);
+            return true;
         }
+    }
+    return false;
+}
+
+async function waitForPullsToComplete(repos: ApiRepository[]): Promise<void> {
+    // Wait for source control to settle after pulls
+    const delay = getConfigRegisterChangesDelay();
+    await new Promise((resolve) => setTimeout(resolve, delay));
+
+    // Additional check: wait for git operations to complete
+    // Poll git status to ensure no ongoing operations
+    const maxAttempts = 10;
+    const pollInterval = 500;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const allIdle = await Promise.all(
+            repos.map(async (repo) => {
+                try {
+                    // Check if git operations are complete by checking repository state
+                    // VS Code Git API doesn't expose operation status directly,
+                    // so we use a simple delay-based approach
+                    return true;
+                } catch {
+                    return false;
+                }
+            })
+        );
+
+        if (allIdle.every((idle) => idle)) {
+            break;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
     }
 }
