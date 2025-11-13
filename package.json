@@ -1,138 +1,140 @@
 {
-  "name": "multi-repo-branch-switcher",
-  "displayName": "Multi-Repo Branch Switcher",
-  "description": "Effortlessly manages branch checkouts in a multi-repository workspace.",
-  "icon": "multi-repo-branch-switcher-icon_128.png",
-  "version": "0.1.8",
-  "publisher": "WolframS",
-  "author": {
-    "name": "Wolfram S."
-  },
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/wolframs/multi-repo-checkout"
-  },
-  "bugs": {
-    "url": "https://github.com/wolframs/multi-repo-checkout/issues"
-  },
-  "engines": {
-    "vscode": "^1.99.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "activationEvents": [],
-  "main": "./dist/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "multi-repo-branch-switcher.switchBranches",
-        "title": "Multi Repo Branch Switcher: Switch Branches",
-        "icon": "$(git-branch)"
-      },
-      {
-        "command": "multi-repo-branch-switcher.deleteStaleBranches",
-        "title": "Multi-Repo Branch Switcher: Delete Stale Local Branches",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "multi-repo-branch-switcher.switchToDefaultBranch",
-        "title": "Multi-Repo Branch Switcher: Switch to Default Branch",
-        "icon": "$(home)"
-      }
+    "name": "multi-repo-branch-switcher",
+    "displayName": "Multi-Repo Branch Switcher",
+    "description": "Effortlessly manages branch checkouts in a multi-repository workspace.",
+    "icon": "multi-repo-branch-switcher-icon_128.png",
+    "version": "0.1.8",
+    "publisher": "WolframS",
+    "author": {
+        "name": "Wolfram S."
+    },
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/wolframs/multi-repo-checkout"
+    },
+    "bugs": {
+        "url": "https://github.com/wolframs/multi-repo-checkout/issues"
+    },
+    "engines": {
+        "vscode": "^1.99.0"
+    },
+    "categories": [
+        "Other"
     ],
-    "configuration": {
-      "type": "object",
-      "title": "Multi-Repo Branch Switcher",
-      "properties": {
-        "multiRepoBranchSwitcher.defaultBranchName": {
-          "type": "string",
-          "default": "master",
-          "description": "Name of the default branch (e.g. 'main' or 'master')."
-        },
-        "multiRepoBranchSwitcher.registerChangesDelay": {
-          "type": "number",
-          "default": 1500,
-          "description": "Delay (in milliseconds) after branch switch commands have finished before considering VSCode's source control management to be ready again."
-        },
-        "multiRepoBranchSwitcher.autoReloadWindow": {
-          "type": "string",
-					"enum": [
-						"Always",
-						"Ask",
-            "Never"
-					],
-					"enumDescriptions": [
-						"Always reload the window after successful branch switches.",
-						"Ask whether to reload the window after successful branch switches.",
-            "Never reload the window after successful branch switches."
-					],
-					"default": "Ask",
-          "description": "Define whether to automatically reload the window after successful branch switches."
-        },
-        "multiRepoBranchSwitcher.autoPullBranchUpdates": {
-          "type": "string",
-					"enum": [
-						"Always",
-						"Ask",
-            "Never"
-					],
-					"enumDescriptions": [
-						"Always pull updates from remote branch after successful branch switches.",
-						"Ask whether to pull updates from remote branch after successful branch switches.",
-            "Never pull updates from remote branch after successful branch switches."
-					],
-					"default": "Ask",
-          "description": "Define whether to automatically pull updates from remote branch after successful branch switches."
-        },
-        "multiRepoBranchSwitcher.prune.cutoffDays": {
-          "type": "number",
-          "default": 14,
-          "description": "Number of days after which local branches are considered stale and eligible for deletion."
-        },
-        "multiRepoBranchSwitcher.prune.protected": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": ["^(main|master|develop)$"],
-          "description": "Array of regex patterns matching branch names that should never be deleted."
-        },
-        "multiRepoBranchSwitcher.prune.dryRun": {
-          "type": "boolean",
-          "default": false,
-          "description": "If true, only preview which branches would be deleted without actually deleting them."
+    "activationEvents": [],
+    "main": "./dist/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "multi-repo-branch-switcher.switchBranches",
+                "title": "Multi Repo Branch Switcher: Switch Branches",
+                "icon": "$(git-branch)"
+            },
+            {
+                "command": "multi-repo-branch-switcher.deleteStaleBranches",
+                "title": "Multi-Repo Branch Switcher: Delete Stale Local Branches",
+                "icon": "$(trash)"
+            },
+            {
+                "command": "multi-repo-branch-switcher.switchToDefaultBranch",
+                "title": "Multi-Repo Branch Switcher: Switch to Default Branch",
+                "icon": "$(home)"
+            }
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "Multi-Repo Branch Switcher",
+            "properties": {
+                "multiRepoBranchSwitcher.defaultBranchName": {
+                    "type": "string",
+                    "default": "master",
+                    "description": "Name of the default branch (e.g. 'main' or 'master')."
+                },
+                "multiRepoBranchSwitcher.registerChangesDelay": {
+                    "type": "number",
+                    "default": 1500,
+                    "description": "Delay (in milliseconds) after branch switch commands have finished before considering VSCode's source control management to be ready again."
+                },
+                "multiRepoBranchSwitcher.autoReloadWindow": {
+                    "type": "string",
+                    "enum": [
+                        "Always",
+                        "Ask",
+                        "Never"
+                    ],
+                    "enumDescriptions": [
+                        "Always reload the window after successful branch switches.",
+                        "Ask whether to reload the window after successful branch switches.",
+                        "Never reload the window after successful branch switches."
+                    ],
+                    "default": "Ask",
+                    "description": "Define whether to automatically reload the window after successful branch switches."
+                },
+                "multiRepoBranchSwitcher.autoPullBranchUpdates": {
+                    "type": "string",
+                    "enum": [
+                        "Always",
+                        "Ask",
+                        "Never"
+                    ],
+                    "enumDescriptions": [
+                        "Always pull updates from remote branch after successful branch switches.",
+                        "Ask whether to pull updates from remote branch after successful branch switches.",
+                        "Never pull updates from remote branch after successful branch switches."
+                    ],
+                    "default": "Ask",
+                    "description": "Define whether to automatically pull updates from remote branch after successful branch switches."
+                },
+                "multiRepoBranchSwitcher.prune.cutoffDays": {
+                    "type": "number",
+                    "default": 14,
+                    "description": "Number of days after which local branches are considered stale and eligible for deletion."
+                },
+                "multiRepoBranchSwitcher.prune.protected": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [
+                        "^(main|master|develop)$"
+                    ],
+                    "description": "Array of regex patterns matching branch names that should never be deleted."
+                },
+                "multiRepoBranchSwitcher.prune.dryRun": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "If true, only preview which branches would be deleted without actually deleting them."
+                }
+            }
         }
-      }
-    }
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run package",
-    "compile": "webpack",
-    "watch": "webpack --watch",
-    "package": "webpack --mode production --devtool hidden-source-map",
-    "compile-tests": "tsc -p . --outDir out",
-    "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "npm run compile-tests && npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test"
-  },
-  "devDependencies": {
-    "@types/vscode": "^1.99.0",
-    "@types/mocha": "^10.0.10",
-    "@types/node": "20.x",
-    "@typescript-eslint/eslint-plugin": "^8.28.0",
-    "@typescript-eslint/parser": "^8.28.0",
-    "eslint": "^9.23.0",
-    "typescript": "^5.8.2",
-    "ts-loader": "^9.5.2",
-    "webpack": "^5.98.0",
-    "webpack-cli": "^6.0.1",
-    "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.4.1"
-  },
-  "extensionDependencies": [
-    "vscode.git"
-  ]
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run package",
+        "compile": "webpack",
+        "watch": "webpack --watch",
+        "package": "webpack --mode production --devtool hidden-source-map",
+        "compile-tests": "tsc -p . --outDir out",
+        "watch-tests": "tsc -p . -w --outDir out",
+        "pretest": "npm run compile-tests && npm run compile && npm run lint",
+        "lint": "eslint src",
+        "test": "vscode-test"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.99.0",
+        "@types/mocha": "^10.0.10",
+        "@types/node": "20.x",
+        "@typescript-eslint/eslint-plugin": "^8.28.0",
+        "@typescript-eslint/parser": "^8.28.0",
+        "eslint": "^9.23.0",
+        "typescript": "^5.8.2",
+        "ts-loader": "^9.5.2",
+        "webpack": "^5.98.0",
+        "webpack-cli": "^6.0.1",
+        "@vscode/test-cli": "^0.0.10",
+        "@vscode/test-electron": "^2.4.1"
+    },
+    "extensionDependencies": [
+        "vscode.git"
+    ]
 }
