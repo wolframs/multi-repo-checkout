@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://marketplace.visualstudio.com/items?itemName=WolframS.multi-repo-branch-switcher"><img alt="Visual Studio Marketplace version" src="https://vsmarketplacebadges.dev/version-short/WolframS.multi-repo-branch-switcher.svg"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=WolframS.multi-repo-branch-switcher"><img alt="Visual Studio Marketplace installs" src="https://vsmarketplacebadges.dev/installs-short/WolframS.multi-repo-branch-switcher.svg"></a>
-  <a href="https://github.com/wolframs/multi-repo-checkout/blob/main/LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/wolframs/multi-repo-checkout?style=flat-square"></a>
+  <a href="https://github.com/wolframs/multi-repo-checkout/blob/main/LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/wolframs/multi-repo-checkout?style=flat&color=4b0"></a>
 </p>
 
 <p align="center">
