@@ -1,15 +1,36 @@
-import * as assert from 'assert';
+import * as assert from "assert";
+import * as vscode from "vscode";
 
-// You can import and use all API from the 'vscode' module
-// as well as import your extension to test it
-import * as vscode from 'vscode';
-// import * as myExtension from '../../extension';
+suite("Extension integration", () => {
+    test("registers every contributed command", async () => {
+        const extension = vscode.extensions.getExtension(
+            "WolframS.multi-repo-branch-switcher"
+        );
+        assert.ok(extension, "Extension should be installed in the test host");
+        await extension.activate();
 
-suite('Extension Test Suite', () => {
-	vscode.window.showInformationMessage('Start all tests.');
+        const commands = await vscode.commands.getCommands(true);
+        for (const command of [
+            "multi-repo-branch-switcher.switchBranches",
+            "multi-repo-branch-switcher.switchToDefaultBranch",
+            "multi-repo-branch-switcher.deleteStaleBranches",
+            "multi-repo-branch-switcher.refreshBranchCache",
+        ]) {
+            assert.ok(commands.includes(command), `${command} should be registered`);
+        }
 
-	test('Sample test', () => {
-		assert.strictEqual(-1, [1, 2, 3].indexOf(5));
-		assert.strictEqual(-1, [1, 2, 3].indexOf(0));
-	});
+        const properties = extension.packageJSON.contributes.configuration.properties;
+        assert.strictEqual(
+            properties["multiRepoBranchSwitcher.preflight.enabled"].default,
+            false
+        );
+        assert.deepStrictEqual(
+            properties["multiRepoBranchSwitcher.remoteRefresh.policy"].enum,
+            ["Never", "When Cache Expires", "Always"]
+        );
+        assert.strictEqual(
+            properties["multiRepoBranchSwitcher.remoteRefresh.policy"].default,
+            "When Cache Expires"
+        );
+    });
 });

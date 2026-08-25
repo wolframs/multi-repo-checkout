@@ -1,12 +1,13 @@
 import * as vscode from "vscode";
-import { exec, execFile } from "child_process";
-import { ApiRepository, Git } from "./types";
+import { ApiRepository } from "./types";
 import {
     getConfigPruneCutoffDays,
     getConfigPruneProtected,
     getConfigPruneDryRun,
 } from "./config";
 import { isRepoClean } from "./is-repo-clean";
+import { getGitRepositories, repositoryPath } from "./git-api";
+import { runGit } from "./git-commands";
 
 interface BranchInfo {
     name: string;
@@ -21,23 +22,10 @@ interface PruneResult {
 }
 
 export async function deleteStaleBranches() {
-    const gitExtension = vscode.extensions.getExtension<{
-        model: Git;
-    }>("vscode.git");
-    if (!gitExtension) {
-        vscode.window.showErrorMessage("Unable to load Git extension");
+    const repos = await getGitRepositories();
+    if (!repos) {
         return;
     }
-
-    const git = gitExtension.isActive
-        ? gitExtension.exports.model
-        : await gitExtension.activate().then(() => gitExtension.exports.model);
-    if (!git) {
-        vscode.window.showErrorMessage("Could not retrieve Git API");
-        return;
-    }
-
-    const repos = git?.repositories || [];
     if (!repos.length) {
         vscode.window.showInformationMessage("No repositories found");
         return;
@@ -81,7 +69,7 @@ export async function deleteStaleBranches() {
             let completed = 0;
 
             for (const repo of repos) {
-                const repoPath = repo.root;
+                const repoPath = repositoryPath(repo);
                 const repoName = repoPath.split("\\").pop() || repoPath.split("/").pop() || "unknown";
 
                 progress.report({
@@ -195,70 +183,40 @@ async function processRepoForStaleBranches(
 async function getLocalBranchesWithDates(
     repoPath: string
 ): Promise<BranchInfo[]> {
-    return new Promise((resolve, reject) => {
-        execFile(
-            "git",
-            [
-                "for-each-ref",
-                "--format=%(refname:short)|%(committerdate:iso)",
-                "refs/heads/",
-            ],
-            { cwd: repoPath },
-            (error, stdout) => {
-                if (error) {
-                    reject(new Error(`Failed to list branches: ${error.message}`));
-                    return;
-                }
+    let stdout: string;
+    try {
+        stdout = await runGit(repoPath, [
+            "for-each-ref",
+            "--format=%(refname:short)|%(committerdate:iso)",
+            "refs/heads/",
+        ]);
+    } catch (error) {
+        throw new Error(`Failed to list branches: ${(error as Error).message}`);
+    }
 
-                const branches: BranchInfo[] = [];
-                const lines = stdout.trim().split("\n").filter((line) => line.length > 0);
-
-                for (const line of lines) {
-                    const [name, dateStr] = line.split("|");
-                    if (name && dateStr) {
-                        const date = new Date(dateStr.trim());
-                        if (!isNaN(date.getTime())) {
-                            branches.push({ name: name.trim(), lastCommitDate: date });
-                        }
-                    }
-                }
-
-                resolve(branches);
+    const branches: BranchInfo[] = [];
+    for (const line of stdout.split("\n").filter(Boolean)) {
+        const [name, dateStr] = line.split("|");
+        if (name && dateStr) {
+            const date = new Date(dateStr.trim());
+            if (!Number.isNaN(date.getTime())) {
+                branches.push({ name: name.trim(), lastCommitDate: date });
             }
-        );
-    });
+        }
+    }
+    return branches;
 }
 
 async function getCurrentBranch(repoPath: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-        exec(
-            "git rev-parse --abbrev-ref HEAD",
-            { cwd: repoPath },
-            (error, stdout) => {
-                if (error) {
-                    reject(new Error(`Failed to get current branch: ${error.message}`));
-                    return;
-                }
-                resolve(stdout.trim());
-            }
-        );
-    });
+    try {
+        return await runGit(repoPath, ["rev-parse", "--abbrev-ref", "HEAD"]);
+    } catch (error) {
+        throw new Error(`Failed to get current branch: ${(error as Error).message}`);
+    }
 }
 
 async function deleteBranch(repoPath: string, branchName: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-        exec(
-            `git branch -D ${branchName}`,
-            { cwd: repoPath },
-            (error, stdout, stderr) => {
-                if (error) {
-                    reject(new Error(stderr || error.message));
-                    return;
-                }
-                resolve();
-            }
-        );
-    });
+    await runGit(repoPath, ["branch", "-D", branchName]);
 }
 
 function showPruneSummary(

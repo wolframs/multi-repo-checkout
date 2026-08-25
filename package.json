@@ -3,7 +3,7 @@
     "displayName": "Multi-Repo Branch Switcher",
     "description": "Effortlessly manages branch checkouts in a multi-repository workspace.",
     "icon": "multi-repo-branch-switcher-icon_128.png",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "publisher": "WolframS",
     "author": {
         "name": "Wolfram S."
@@ -28,7 +28,7 @@
         "commands": [
             {
                 "command": "multi-repo-branch-switcher.switchBranches",
-                "title": "Multi Repo Branch Switcher: Switch Branches",
+                "title": "Multi-Repo Branch Switcher: Switch Branches",
                 "icon": "$(git-branch)"
             },
             {
@@ -40,6 +40,11 @@
                 "command": "multi-repo-branch-switcher.switchToDefaultBranch",
                 "title": "Multi-Repo Branch Switcher: Switch to Default Branch",
                 "icon": "$(home)"
+            },
+            {
+                "command": "multi-repo-branch-switcher.refreshBranchCache",
+                "title": "Multi-Repo Branch Switcher: Refresh Branch Cache",
+                "icon": "$(refresh)"
             }
         ],
         "configuration": {
@@ -86,6 +91,44 @@
                     "default": "Ask",
                     "description": "Define whether to automatically pull updates from remote branch after successful branch switches."
                 },
+                "multiRepoBranchSwitcher.cache.enabled": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Cache branch refs per workspace to make repeated branch switches immediate."
+                },
+                "multiRepoBranchSwitcher.cache.ttlSeconds": {
+                    "type": "number",
+                    "minimum": 0,
+                    "default": 300,
+                    "description": "How long cached branch refs remain fresh. Set to 0 to refresh refs on every branch switch."
+                },
+                "multiRepoBranchSwitcher.remoteRefresh.policy": {
+                    "type": "string",
+                    "enum": [
+                        "Never",
+                        "When Cache Expires",
+                        "Always"
+                    ],
+                    "enumDescriptions": [
+                        "Never contact origin before loading the branch picker; use locally fetched remote-tracking refs.",
+                        "Fetch origin before refreshing missing or expired cache entries.",
+                        "Fetch origin every time the branch picker opens."
+                    ],
+                    "default": "When Cache Expires",
+                    "description": "Control when origin is fetched before branch refs are loaded. Manual refresh follows this policy."
+                },
+                "multiRepoBranchSwitcher.preflight.enabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Preview the planned action for every repository and require confirmation before switching branches."
+                },
+                "multiRepoBranchSwitcher.maxConcurrentRepositories": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 32,
+                    "default": 4,
+                    "description": "Maximum number of repositories processed at the same time during branch operations."
+                },
                 "multiRepoBranchSwitcher.prune.cutoffDays": {
                     "type": "number",
                     "default": 14,
@@ -114,7 +157,7 @@
         "compile": "webpack",
         "watch": "webpack --watch",
         "package": "webpack --mode production --devtool hidden-source-map",
-        "compile-tests": "tsc -p . --outDir out",
+        "compile-tests": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\" && tsc -p . --outDir out",
         "watch-tests": "tsc -p . -w --outDir out",
         "pretest": "npm run compile-tests && npm run compile && npm run lint",
         "lint": "eslint src",

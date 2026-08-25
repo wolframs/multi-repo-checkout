@@ -1,172 +1,219 @@
 import * as vscode from "vscode";
-import { ApiRepository, Git } from "./types";
+import { BranchCache } from "./branch-cache";
 import { collectAllBranches } from "./collect-all-branches";
 import {
-    getConfigAutoPullBranchUpdates,
-    getConfigAutoReloadWindow,
-    getConfigRegisterChangesDelay,
+    getConfigCacheEnabled,
+    getConfigCacheTtlSeconds,
+    getConfigMaxConcurrentRepositories,
+    getConfigPreflightEnabled,
+    getConfigRemoteRefreshPolicy,
 } from "./config";
-import { autoPull } from "./auto-pull";
-import { showBranchQuickPick } from "./show-branch-quick-pick";
+import { assertValidBranchName } from "./git-commands";
+import { getGitRepositories } from "./git-api";
 import { processRepositories } from "./process-repositories";
+import { finishSuccessfulSwitch } from "./post-switch";
+import { createRemoteRefresher } from "./remote-refresh";
+import { showBranchQuickPick } from "./show-branch-quick-pick";
+import { confirmSwitchPreflight } from "./switch-preflight";
+import {
+    createRepositorySwitchPlans,
+    RepositorySwitchPlan,
+} from "./switch-plan";
+import {
+    ResultOutput,
+    showSwitchResultNotification,
+} from "./switch-result-report";
+import { ApiRepository, BranchCatalog, RemoteRefreshPolicy } from "./types";
 
-export async function switchBranches() {
-    const gitExtension = vscode.extensions.getExtension<{
-        model: Git;
-    }>("vscode.git");
-    if (!gitExtension) {
-        vscode.window.showErrorMessage("Unable to load Git extension");
+export async function switchBranches(
+    cache: BranchCache,
+    resultOutput: ResultOutput
+): Promise<void> {
+    const repos = await getGitRepositories();
+    if (!repos) {
         return;
     }
-
-    const git = gitExtension.isActive
-        ? gitExtension.exports.model
-        : await gitExtension.activate().then(() => gitExtension.exports.model);
-    if (!git) {
-        vscode.window.showErrorMessage("Could not retrieve Git API");
-        return;
-    }
-
-    const repos = git?.repositories || [];
     if (!repos.length) {
         vscode.window.showInformationMessage("No repositories found");
         return;
     }
 
-    // Collect all unique branch names from all repositories
-    let allBranches = new Set<string>();
-    await vscode.window.withProgress(
-        {
-            location: vscode.ProgressLocation.Window,
-            title: "$(git-fetch) Collecting repository refs",
-            cancellable: false,
-        },
-        async (progress) => {
-            allBranches = await collectAllBranches(repos, progress);
-        }
-    );
+    const remoteRefreshPolicy = getConfigRemoteRefreshPolicy();
+    let forceRefresh = remoteRefreshPolicy === "Always";
+    let catalog: BranchCatalog;
+    let selection;
 
-    // Show branch selection quick pick
-    const branchName = await showBranchQuickPick(allBranches);
-    if (!branchName) {
-        return;
+    while (true) {
+        try {
+            catalog = await collectWithProgress(
+                repos,
+                cache,
+                forceRefresh,
+                remoteRefreshPolicy
+            );
+        } catch (error) {
+            if (error instanceof vscode.CancellationError) {
+                return;
+            }
+            const message = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`Unable to load branch refs: ${message}`);
+            return;
+        }
+        if (catalog.staleRepositories.length > 0) {
+            vscode.window.showWarningMessage(
+                `Using older cached refs for: ${catalog.staleRepositories.join(", ")}`
+            );
+        }
+        if (catalog.remoteRefreshFailures.length > 0) {
+            vscode.window.showWarningMessage(
+                `Could not fetch origin for: ${catalog.remoteRefreshFailures
+                    .map((failure) => failure.repository)
+                    .join(", ")}. Using locally available refs.`
+            );
+        }
+
+        selection = await showBranchQuickPick(catalog);
+        if (!selection || !selection.refresh) {
+            break;
+        }
+        forceRefresh = true;
     }
 
-    // Process all repositories
-    const createNewBranch = branchName.startsWith("$(plus)");
-    const branchNameWithoutPlus = createNewBranch
-        ? branchName.substring("$(plus)".length)
-        : branchName;
+    if (!selection?.branchName) {
+        return;
+    }
+    if (selection.createNew) {
+        try {
+            await assertValidBranchName(selection.branchName);
+        } catch (error) {
+            vscode.window.showErrorMessage((error as Error).message);
+            return;
+        }
+    }
+
+    let preflightPlans: RepositorySwitchPlan[] | undefined;
+    if (getConfigPreflightEnabled()) {
+        preflightPlans = await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Window,
+                title: "$(checklist) Checking repository switch plan",
+                cancellable: false,
+            },
+            (progress) => createRepositorySwitchPlans(
+                repos,
+                selection.branchName!,
+                selection.createNew === true,
+                catalog,
+                (completed, total) => progress.report({
+                    message: `${completed}/${total} repositories`,
+                    increment: total === 0 ? 100 : 100 / total,
+                })
+            )
+        );
+        if (!(await confirmSwitchPreflight(preflightPlans, selection.branchName))) {
+            return;
+        }
+    }
 
     let finalResults: string[] = [];
     await vscode.window.withProgress(
-        { location: vscode.ProgressLocation.SourceControl },
-        async () => {
-            await vscode.window.withProgress(
-                {
-                    location: vscode.ProgressLocation.Notification,
-                    title: `Switching branches`,
-                    cancellable: false,
-                },
-                async (notification_progress) => {
-                    finalResults = await processRepositories(
-                        repos,
-                        branchNameWithoutPlus,
-                        createNewBranch,
-                        notification_progress
-                    );
-                }
+        {
+            location: vscode.ProgressLocation.Notification,
+            title: "Switching branches",
+            cancellable: false,
+        },
+        async (progress) => {
+            finalResults = await processRepositories(
+                repos,
+                selection.branchName!,
+                selection.createNew === true,
+                progress,
+                catalog,
+                preflightPlans
             );
         }
     );
+    if (getConfigCacheEnabled()) {
+        await cache.persistLocalChanges(catalog);
+    }
 
-    showFinalReport(finalResults);
+    void showSwitchResultNotification(
+        "Checkouts complete",
+        finalResults,
+        resultOutput
+    );
 
-    const resultsWithIssues = finalResults.filter(
+    const hasIssues = finalResults.some(
         (result) => result.startsWith("❌") || result.startsWith("⚠️")
     );
-    if (resultsWithIssues.length === 0) {
-        const pullsTriggered = await triggerAutoPull(repos);
-        // Wait for all pulls to complete and source control to settle
-        if (pullsTriggered) {
-            await waitForPullsToComplete(repos);
-        }
-        await triggerReloadWindow();
+    if (!hasIssues) {
+        await finishSuccessfulSwitch(repos);
     }
 }
 
-function showFinalReport(results: string[]): void {
-    vscode.window.showInformationMessage(
-        `Checkouts complete: ${results.join(" ··· ")}`,
-        { modal: false }
+export async function refreshBranchCache(cache: BranchCache): Promise<void> {
+    const repos = await getGitRepositories();
+    if (!repos) {
+        return;
+    }
+    if (!repos.length) {
+        vscode.window.showInformationMessage("No repositories found");
+        return;
+    }
+
+    let catalog: BranchCatalog;
+    const remoteRefreshPolicy = getConfigRemoteRefreshPolicy();
+    try {
+        catalog = await collectWithProgress(
+            repos,
+            cache,
+            true,
+            remoteRefreshPolicy
+        );
+    } catch (error) {
+        if (error instanceof vscode.CancellationError) {
+            return;
+        }
+        const message = error instanceof Error ? error.message : String(error);
+        vscode.window.showErrorMessage(`Unable to refresh branch refs: ${message}`);
+        return;
+    }
+    if (catalog.staleRepositories.length > 0) {
+        vscode.window.showWarningMessage(
+            `Could not refresh refs for: ${catalog.staleRepositories.join(", ")}`
+        );
+        return;
+    }
+    if (catalog.remoteRefreshFailures.length > 0) {
+        vscode.window.showWarningMessage(
+            `Branch refs refreshed locally, but origin could not be fetched for: ${catalog.remoteRefreshFailures
+                .map((failure) => failure.repository)
+                .join(", ")}.`
+        );
+        return;
+    }
+    vscode.window.showInformationMessage(`Branch refs refreshed from ${repos.length} repositories.`);
+}
+
+async function collectWithProgress(
+    repos: ApiRepository[],
+    cache: BranchCache,
+    forceRefresh: boolean,
+    remoteRefreshPolicy: RemoteRefreshPolicy
+): Promise<BranchCatalog> {
+    return vscode.window.withProgress(
+        {
+            location: vscode.ProgressLocation.Window,
+            title: forceRefresh ? "$(refresh) Refreshing repository refs" : "$(git-branch) Loading repository refs",
+            cancellable: true,
+        },
+        (progress, cancellationToken) => collectAllBranches(repos, cache, progress, {
+            enabled: getConfigCacheEnabled(),
+            ttlMs: getConfigCacheTtlSeconds() * 1000,
+            forceRefresh,
+            maxConcurrency: getConfigMaxConcurrentRepositories(),
+            cancellationToken,
+            refreshRemote: createRemoteRefresher(remoteRefreshPolicy),
+        })
     );
-}
-
-export async function triggerReloadWindow() {
-    const autoReloadWindow = getConfigAutoReloadWindow();
-    if (autoReloadWindow === "Always") {
-        vscode.commands.executeCommand("workbench.action.reloadWindow");
-    } else if (autoReloadWindow === "Ask") {
-        const reload = await vscode.window.showInformationMessage(
-            "Do you want to reload the window?",
-            { modal: false },
-            { title: "Yes" },
-            { title: "No" }
-        );
-        if (reload?.title === "Yes") {
-            vscode.commands.executeCommand("workbench.action.reloadWindow");
-        }
-    }
-}
-
-async function triggerAutoPull(repos: ApiRepository[]): Promise<boolean> {
-    const autoPullBranchUpdates = getConfigAutoPullBranchUpdates();
-    if (autoPullBranchUpdates === "Always") {
-        await autoPull(repos);
-        return true;
-    } else if (autoPullBranchUpdates === "Ask") {
-        const pull = await vscode.window.showInformationMessage(
-            "Do you want to pull updates from each remote branch?",
-            { modal: false },
-            { title: "Yes" },
-            { title: "No" }
-        );
-        if (pull?.title === "Yes") {
-            await autoPull(repos);
-            return true;
-        }
-    }
-    return false;
-}
-
-async function waitForPullsToComplete(repos: ApiRepository[]): Promise<void> {
-    // Wait for source control to settle after pulls
-    const delay = getConfigRegisterChangesDelay();
-    await new Promise((resolve) => setTimeout(resolve, delay));
-
-    // Additional check: wait for git operations to complete
-    // Poll git status to ensure no ongoing operations
-    const maxAttempts = 10;
-    const pollInterval = 500;
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const allIdle = await Promise.all(
-            repos.map(async (repo) => {
-                try {
-                    // Check if git operations are complete by checking repository state
-                    // VS Code Git API doesn't expose operation status directly,
-                    // so we use a simple delay-based approach
-                    return true;
-                } catch {
-                    return false;
-                }
-            })
-        );
-
-        if (allIdle.every((idle) => idle)) {
-            break;
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, pollInterval));
-    }
 }

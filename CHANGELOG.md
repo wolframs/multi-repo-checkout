@@ -4,6 +4,23 @@ All notable changes to the "multi-repo-checkout" extension will be documented in
 
 ## Released
 
+### [Unreleased]
+
+### [0.3.0] - 2026-08-25
+
+- Performance: Cache local and `origin` remote-tracking refs per workspace with a configurable TTL
+- Performance: Query refs and process repositories concurrently with a configurable limit
+- Performance: Remove per-repository `ls-remote` calls from branch switching and default-branch detection
+- Feature: Refresh cached branch refs from the branch picker or Command Palette
+- Feature: Add configurable `origin` refresh policies, defaulting to `When Cache Expires`, with non-blocking per-repository failure handling
+- Feature: Show local, remote, and fallback repository coverage in the branch picker
+- Feature: Add optional preflight confirmation with post-confirmation safety revalidation
+- UX: Replace inline repository result dumps with compact counts and an Output-channel **Show Details** action
+- UX: Redesign the README with a new hero, current screenshots, Marketplace badges, and clearer workflow documentation
+- Robustness: Preserve stale cached refs after transient Git failures, honor refresh cancellation, and recheck refs that change after catalog creation
+- Maintenance: Use the supported VS Code Git API and argument-safe Git commands
+- Tests: Add real-repository coverage for cache reuse, forced refresh, remote failure, cancellation, preflight races, and offline switching
+
 ### [0.2.0]
 - Feature [Delete stale local branches with date cutoff](https://github.com/wolframs/multi-repo-checkout/issues/8)
   - New command: "Multi-Repo Branch Switcher: Delete Stale Local Branches"
