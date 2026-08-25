@@ -1,5 +1,7 @@
 .vscode/**
 .vscode-test/**
+.some-ideas.md
+AGENTS.md
 out/**
 node_modules/**
 src/**

@@ -6,6 +6,11 @@ All notable changes to the "multi-repo-checkout" extension will be documented in
 
 ### [Unreleased]
 
+### [0.3.1] - 2026-08-25
+
+- Documentation: Replace retired Visual Studio Marketplace badge endpoints with the supported provider and align all README badge styling
+- Packaging: Keep local memory and agent-instruction files out of published VSIX packages
+
 ### [0.3.0] - 2026-08-25
 
 - Performance: Cache local and `origin` remote-tracking refs per workspace with a configurable TTL
