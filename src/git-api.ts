@@ -1,10 +1,15 @@
 import * as vscode from "vscode";
+import { errorMessage } from "./git-commands";
 import { ApiRepository, GitExtension } from "./types";
 
-export async function getGitRepositories(): Promise<ApiRepository[] | undefined> {
+export async function getGitRepositories(
+    onFailure: (reason: string) => void = (reason) => {
+        vscode.window.showErrorMessage(reason);
+    }
+): Promise<ApiRepository[] | undefined> {
     const extension = vscode.extensions.getExtension<GitExtension>("vscode.git");
     if (!extension) {
-        vscode.window.showErrorMessage("Unable to load Git extension");
+        onFailure("Unable to load Git extension");
         return undefined;
     }
 
@@ -14,8 +19,7 @@ export async function getGitRepositories(): Promise<ApiRepository[] | undefined>
             : await extension.activate();
         return exports.getAPI(1).repositories;
     } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        vscode.window.showErrorMessage(`Could not retrieve Git API: ${message}`);
+        onFailure(`Could not retrieve Git API: ${errorMessage(error)}`);
         return undefined;
     }
 }

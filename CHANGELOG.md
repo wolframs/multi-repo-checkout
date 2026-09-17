@@ -6,6 +6,21 @@ All notable changes to the "multi-repo-checkout" extension will be documented in
 
 ### [Unreleased]
 
+### [0.4.0] - 2026-09-17
+
+- Performance: Refresh cached refs in the background at a configurable interval (300 seconds by default), respecting the remote fetch policy
+- Configuration: Increase the default required cache rebuild age to 86,400 seconds (one day); keep zero as refresh-on-every-switch
+- UI: Show ref loading and refreshing as a progress notification with a repository count instead of a status-bar item, so a slow load is visible
+- Fix: Share a ref load between the background refresh and the branch picker without letting either one's cancellation abort the other
+- Fix: Evict a ref load abandoned by every caller so the next one starts fresh instead of inheriting its cancellation
+- Fix: Keep refs discovered by a background refresh when persisting the branches a switch created
+- Fix: Order cache writes by a monotonic entry revision rather than a wall-clock timestamp, so an out-of-order or same-millisecond write is still detected
+- Fix: Reschedule the background refresh only for the settings that govern the timer, and leave a run already under way untouched
+- Logging: Report background refresh failures in their own timestamped output channel instead of the Results channel, which is cleared on every switch
+- Logging: Report Git repository discovery failures in the background channel, once per outage and once on recovery
+- Logging: Log every background failure kind on change only, with one line on recovery, so an offline session does not fill the channel every interval
+- Tests: Cover background fetch discovery, cache reuse, settings changes, retry, cancellation, and expiry with real Git repositories
+
 ### [0.3.1] - 2026-08-25
 
 - Documentation: Replace retired Visual Studio Marketplace badge endpoints with the supported provider and align all README badge styling

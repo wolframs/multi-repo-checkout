@@ -3,7 +3,7 @@
     "displayName": "Multi-Repo Branch Switcher",
     "description": "Effortlessly manages branch checkouts in a multi-repository workspace.",
     "icon": "multi-repo-branch-switcher-icon_128.png",
-    "version": "0.3.1",
+    "version": "0.4.0",
     "publisher": "WolframS",
     "author": {
         "name": "Wolfram S."
@@ -22,7 +22,7 @@
     "categories": [
         "Other"
     ],
-    "activationEvents": [],
+    "activationEvents": ["onStartupFinished"],
     "main": "./dist/extension.js",
     "contributes": {
         "commands": [
@@ -99,8 +99,15 @@
                 "multiRepoBranchSwitcher.cache.ttlSeconds": {
                     "type": "number",
                     "minimum": 0,
+                    "default": 86400,
+                    "description": "Maximum age in seconds before a branch switch requires a full refs rebuild (86400 = one day). Successful background refreshes renew the cache. Set to 0 to rebuild on every branch switch."
+                },
+                "multiRepoBranchSwitcher.cache.backgroundRefreshIntervalSeconds": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 2147483,
                     "default": 300,
-                    "description": "How long cached branch refs remain fresh. Set to 0 to refresh refs on every branch switch."
+                    "description": "Seconds between completed background refs refreshes while VS Code is open. Fetches origin unless remoteRefresh.policy is Never. Set to 0 to disable; also disabled when caching is off."
                 },
                 "multiRepoBranchSwitcher.remoteRefresh.policy": {
                     "type": "string",

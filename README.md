@@ -34,7 +34,7 @@ Multi-Repo Branch Switcher coordinates branch checkout, creation, fallback, refr
 3. Run **Multi-Repo Branch Switcher: Switch Branches**.
 4. Review branch coverage and choose an existing branch—or select **Create New Branches for All Repos**.
 
-> 💡 **Tip:** The first lookup populates the workspace cache. Reopening the picker is normally immediate; **Refresh Branch List** forces a ref refresh when you need it.
+> 💡 **Tip:** The first lookup populates the workspace cache and shows its progress as a cancellable notification. Reopening the picker is normally immediate; **Refresh Branch List** forces a ref refresh when you need it.
 
 ## 👀 See it in action
 
@@ -102,7 +102,8 @@ When every repository succeeds, the extension can pull updates and reload the VS
 
 The branch picker reads local branches and locally available `origin/*` remote-tracking refs through VS Code's Git API. Those remote-tracking refs only change after a fetch.
 
-- Cache entries are scoped to the current workspace and expire after 300 seconds by default.
+- Cache entries are scoped to the current workspace and require a full rebuild on picker open after 86,400 seconds (one day) without a successful refresh.
+- Background refresh runs every 300 seconds after the previous run completes, starting after workspace startup. It fetches `origin` and updates the cache without opening the picker. Set `cache.backgroundRefreshIntervalSeconds` to `0` to disable it; disabling the cache also stops background work. Settings changes apply without reloading: those two settings reschedule immediately without interrupting a run already under way, and the rest take effect on the next run. Background failures are logged in the Background Refresh output channel, kept separate from switch results so they survive the next switch, and retried on the next interval; an ongoing failure is logged once when it appears and once when it recovers.
 - Ref collection and repository processing use a configurable concurrency limit.
 - If a local ref refresh fails, the last cached snapshot remains available and is marked stale.
 - If fetching `origin` fails, locally available refs remain usable and the affected repository is reported.
@@ -112,9 +113,9 @@ The branch picker reads local branches and locally available `origin/*` remote-t
 
 | Policy | Behavior | Good fit |
 | --- | --- | --- |
-| `When Cache Expires` **(default)** | Fetch `origin` for missing, expired, or manually refreshed entries. | Fresh results without paying network cost on every picker open. |
+| `When Cache Expires` **(default)** | Fetch `origin` in the background and for missing, expired, or manually refreshed entries. | Fresh results without paying network cost on every picker open. |
 | `Always` | Fetch `origin` whenever the branch picker opens. | Workflows where server freshness matters more than latency. |
-| `Never` | Never contact `origin` while loading or refreshing the picker. | Offline, metered, VPN-sensitive, or externally managed fetch workflows. |
+| `Never` | Never contact `origin`, including background refreshes (which only reload local refs). | Offline, metered, VPN-sensitive, or externally managed fetch workflows. |
 
 ## 🧹 Stale branch cleanup
 
@@ -138,7 +139,8 @@ Open **Settings → Extensions → Multi-Repo Branch Switcher**, or add settings
   "multiRepoBranchSwitcher.autoReloadWindow": "Ask",
 
   "multiRepoBranchSwitcher.cache.enabled": true,
-  "multiRepoBranchSwitcher.cache.ttlSeconds": 300,
+  "multiRepoBranchSwitcher.cache.ttlSeconds": 86400,
+  "multiRepoBranchSwitcher.cache.backgroundRefreshIntervalSeconds": 300,
   "multiRepoBranchSwitcher.remoteRefresh.policy": "When Cache Expires",
   "multiRepoBranchSwitcher.maxConcurrentRepositories": 4,
   "multiRepoBranchSwitcher.preflight.enabled": false,
@@ -156,7 +158,8 @@ Open **Settings → Extensions → Multi-Repo Branch Switcher**, or add settings
 | `autoPullBranchUpdates` | `"Ask"` | Pull after a fully successful switch: `Always`, `Ask`, or `Never`. |
 | `autoReloadWindow` | `"Ask"` | Reload after a fully successful switch: `Always`, `Ask`, or `Never`. |
 | `cache.enabled` | `true` | Persist branch refs per workspace. |
-| `cache.ttlSeconds` | `300` | Ref snapshot lifetime; `0` refreshes on every switch. |
+| `cache.ttlSeconds` | `86400` | Maximum snapshot age before a required rebuild; `0` rebuilds on every switch. |
+| `cache.backgroundRefreshIntervalSeconds` | `300` | Background refresh interval in seconds after completion; `0` disables. |
 | `remoteRefresh.policy` | `"When Cache Expires"` | Decide when ref refreshes also fetch `origin`. |
 | `maxConcurrentRepositories` | `4` | Bound concurrent Git work from `1` to `32`. |
 | `preflight.enabled` | `false` | Preview and confirm all repository actions before switching. |

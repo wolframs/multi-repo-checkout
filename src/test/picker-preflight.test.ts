@@ -41,6 +41,10 @@ suite("Branch picker and preflight UI model", () => {
                 ["repo-one", "repo-one"],
                 ["repo-two", "repo-two"],
             ]),
+            repositoryRevision: new Map([
+                ["repo-one", 0],
+                ["repo-two", 0],
+            ]),
             staleRepositories: [],
             remoteRefreshFailures: [],
         };

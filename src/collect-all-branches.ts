@@ -9,11 +9,13 @@ export async function collectAllBranches(
     options: Omit<CacheOptions, "onRepositoryLoaded">
 ): Promise<BranchCatalog> {
     const increment = repos.length === 0 ? 100 : 100 / repos.length;
+    let loaded = 0;
     return cache.collect(repos, {
         ...options,
         onRepositoryLoaded: (repoName, fromCache) => {
+            loaded++;
             progress.report({
-                message: `${fromCache ? "Loaded" : "Collected"} ${repoName}`,
+                message: `${fromCache ? "Loaded" : "Collected"} ${repoName} (${loaded}/${repos.length})`,
                 increment,
             });
         },

@@ -3,13 +3,23 @@ import { mkdtemp, rename, rm, writeFile } from "fs/promises";
 import * as os from "os";
 import * as path from "path";
 import * as vscode from "vscode";
-import { BranchCache } from "../branch-cache";
+import { BranchCache, CacheOptions, repositoryCacheKey } from "../branch-cache";
+import {
+    BackgroundRefresh,
+    BackgroundRefreshOptions,
+    RepositoryProvider,
+    ScheduleRefresh,
+} from "../background-refresh";
+import { affectsBackgroundSchedule } from "../config";
+import { createRemoteRefresher } from "../remote-refresh";
 import { runGit } from "../git-commands";
 import { processRepositories } from "../process-repositories";
 import { createPreflightSummary } from "../switch-preflight";
 import { createRepositorySwitchPlans } from "../switch-plan";
 import { determineDefaultBranch } from "../switch-to-default-branch";
 import { ApiRepository, Ref, RefType } from "../types";
+
+const DAY_MS = 86_400_000;
 
 class MemoryMemento implements vscode.Memento {
     private readonly values = new Map<string, unknown>();
@@ -33,7 +43,33 @@ class MemoryMemento implements vscode.Memento {
     }
 }
 
-suite("Branch cache and switching integration", () => {
+/** Stands in for setTimeout so tests fire background ticks by hand. */
+class FakeScheduler {
+    tick?: () => void;
+    scheduled = 0;
+    disposed = 0;
+    readonly delays: number[] = [];
+
+    readonly schedule: ScheduleRefresh = (callback, delay) => {
+        this.tick = callback;
+        this.scheduled++;
+        this.delays.push(delay);
+        return {
+            dispose: () => {
+                this.disposed++;
+                this.tick = undefined;
+            },
+        };
+    };
+
+    fire(): void {
+        assert.ok(this.tick, "no background tick is pending");
+        this.tick();
+    }
+}
+
+suite("Branch cache and switching integration", function () {
+    this.timeout(20_000);
     let tempRoot: string;
     let remotePath: string;
     let seedPath: string;
@@ -134,6 +170,120 @@ suite("Branch cache and switching integration", () => {
         assert.strictEqual(remoteFetches, fetchesBefore + repositories.length);
         assert.ok(refreshed.branches.has("feature/remote-refresh"));
         assert.deepStrictEqual(refreshed.remoteRefreshFailures, []);
+    });
+
+    test("background fetch updates persisted refs without making picker opens fetch", async () => {
+        const state = new MemoryMemento();
+        const cache = new BranchCache(state);
+        const options = cacheOptions({
+            intervalMs: 300_000,
+            maxConcurrency: 1,
+            refreshRemote: createRemoteRefresher("When Cache Expires"),
+        });
+        await cache.collect(repositories, options);
+        await runGit(seedPath, ["branch", "feature/background"]);
+        await runGit(seedPath, ["push", "origin", "feature/background"]);
+        const { worker, scheduler, messages } = startWorker(cache, () => options);
+        try {
+            const before = remoteFetches;
+            scheduler.fire();
+            await waitUntil(() => scheduler.scheduled === 2);
+            assert.deepStrictEqual(scheduler.delays, [300_000, 300_000]);
+            assert.strictEqual(remoteFetches, before + repositories.length);
+            const queries = refQueries;
+            const catalog = await new BranchCache(state).collect(repositories, options);
+            assert.ok(catalog.branches.has("feature/background"));
+            assert.strictEqual(refQueries, queries);
+            assert.strictEqual(remoteFetches, before + repositories.length);
+            assert.deepStrictEqual(messages, []);
+
+            // Never still refreshes local changes, without contacting origin.
+            options.refreshRemote = createRemoteRefresher("Never");
+            await runGit(repoPaths[0], ["branch", "background-local"]);
+            scheduler.fire();
+            await waitUntil(() => scheduler.scheduled === 3);
+            assert.strictEqual(remoteFetches, before + repositories.length);
+            assert.ok((await cache.collect(repositories, options)).branches.has("background-local"));
+
+            options.intervalMs = 0;
+            worker.configure();
+            assert.strictEqual(scheduler.tick, undefined);
+            options.intervalMs = 10_000;
+            worker.configure();
+            assert.ok(scheduler.tick);
+            options.enabled = false;
+            worker.configure();
+            assert.strictEqual(scheduler.tick, undefined);
+        } finally {
+            worker.dispose();
+        }
+        assert.strictEqual(scheduler.tick, undefined);
+    });
+
+    test("background refresh does not overlap, retries failures, and cancels on disposal", async () => {
+        const cache = new BranchCache(new MemoryMemento());
+        await cache.collect(repositories, cacheOptions());
+        const { gate, release } = createGate();
+        let calls = 0;
+        const { worker, scheduler, messages } = startWorker(cache, () => cacheOptions({
+            refreshRemote: async () => {
+                calls++;
+                await gate;
+                throw new Error("offline");
+            },
+        }));
+        try {
+            scheduler.fire();
+            await waitUntil(() => calls === 2);
+            scheduler.fire();
+            assert.strictEqual(calls, 2);
+            assert.strictEqual(scheduler.scheduled, 1, "no timer queued during slow fetch");
+            release();
+            await waitUntil(() => scheduler.scheduled === 2);
+            assert.strictEqual(messages.length, 2);
+            scheduler.fire();
+            await waitUntil(() => scheduler.scheduled === 3);
+            assert.strictEqual(calls, 4, "failed fetches are retried");
+            assert.strictEqual(messages.length, 2, "an unchanged failure is not logged again");
+            const lateTick = scheduler.tick!;
+            worker.dispose();
+            lateTick();
+            assert.strictEqual(calls, 4);
+            assert.ok(scheduler.disposed);
+        } finally {
+            release();
+            worker.dispose();
+        }
+    });
+
+    test("disposal during a background fetch preserves the cache and stops future runs", async () => {
+        const cache = new BranchCache(new MemoryMemento());
+        await cache.collect(repositories, cacheOptions({ now: 1_000 }));
+        const remote = gatedRemote();
+        const { worker, scheduler, messages } = startWorker(
+            cache,
+            () => cacheOptions({ refreshRemote: remote.refresh })
+        );
+        try {
+            scheduler.fire();
+            await waitUntil(() => remote.started === repositories.length);
+            const before = refQueries;
+            worker.dispose();
+            remote.release();
+            // Drain the asynchronous fetch continuations before inspecting storage.
+            await delay(20);
+            assert.strictEqual(refQueries, before);
+            assert.strictEqual(scheduler.scheduled, 1);
+            assert.deepStrictEqual(messages, [], "cancellation is silent");
+            await cache.collect(repositories, cacheOptions({ now: 2_000 }));
+            assert.strictEqual(refQueries, before, "the previous snapshot remains usable");
+            await cache.collect(repositories, cacheOptions({ now: 86_402_000 }));
+            assert.strictEqual(refQueries, before + repositories.length,
+                "an expired snapshot still requires a full rebuild");
+        } finally {
+            remote.release();
+            worker.dispose();
+        }
     });
 
     test("honors cancellation instead of silently falling back to cached refs", async () => {
@@ -344,6 +494,201 @@ suite("Branch cache and switching integration", () => {
         assert.deepStrictEqual(catalog.staleRepositories, []);
     });
 
+    for (const [cancelled, survivor] of [["first", "second"], ["second", "first"]] as const) {
+        test(`a shared ref load survives when the ${cancelled} caller to join it is cancelled`, async () => {
+            const cache = new BranchCache(new MemoryMemento());
+            const remote = gatedRemote();
+            const sources = {
+                first: new vscode.CancellationTokenSource(),
+                second: new vscode.CancellationTokenSource(),
+            };
+            try {
+                const first = cache.collect(repositories, forcedLoad(remote, sources.first.token));
+                await waitUntil(() => remote.started === repositories.length);
+                const second = cache.collect(repositories, forcedLoad(remote, sources.second.token));
+                const runs = { first, second };
+
+                sources[cancelled].cancel();
+                remote.release();
+
+                await assert.rejects(
+                    runs[cancelled],
+                    (error) => error instanceof vscode.CancellationError
+                );
+                assert.ok((await runs[survivor]).branches.has("main"));
+            } finally {
+                remote.release();
+                sources.first.dispose();
+                sources.second.dispose();
+            }
+        });
+    }
+
+    test("a load abandoned by every caller is not handed to the next one", async () => {
+        const cache = new BranchCache(new MemoryMemento());
+        const remote = gatedRemote();
+        const abandoned = new vscode.CancellationTokenSource();
+        try {
+            const abandonedRun = cache.collect(repositories, forcedLoad(remote, abandoned.token));
+            await waitUntil(() => remote.started === repositories.length);
+
+            // The only caller walks away, then a new refresh arrives before the
+            // cancelled load has finished unwinding.
+            abandoned.cancel();
+            const rejoined = cache.collect(repositories, forcedLoad(remote));
+            remote.release();
+
+            await assert.rejects(
+                abandonedRun,
+                (error) => error instanceof vscode.CancellationError
+            );
+            assert.ok(
+                (await rejoined).branches.has("main"),
+                "a caller must never inherit an already-cancelled load"
+            );
+        } finally {
+            remote.release();
+            abandoned.dispose();
+        }
+    });
+
+    // The refresh that lands between building a catalog and persisting a switch
+    // may carry a later, earlier or identical clock; only its revision may decide.
+    for (const [label, catalogNow, refreshNow] of [
+        ["a background refresh added afterwards", 1_000, 2_000],
+        ["a slower refresh that started earlier", 5_000, 1_000],
+        ["a refresh written within the same millisecond", 7_000, 7_000],
+    ] as const) {
+        test(`persisting a switch keeps refs from ${label}`, async () => {
+            const state = new MemoryMemento();
+            const cache = new BranchCache(state);
+            const background = `background-${catalogNow}-${refreshNow}`;
+            const created = `switch-${catalogNow}-${refreshNow}`;
+            const catalog = await cache.collect(repositories, cacheOptions({ now: catalogNow }));
+            await runGit(repoPaths[0], ["branch", background]);
+            await new BranchCache(state).collect(
+                repositories,
+                cacheOptions({ forceRefresh: true, now: refreshNow })
+            );
+            const key = repositoryCacheKey(repoPaths[0]);
+            catalog.byRepository.get(key)!.local.add(created);
+
+            await cache.persistLocalChanges(catalog);
+
+            const reloaded = await new BranchCache(state).collect(
+                repositories,
+                cacheOptions({ now: catalogNow + 500 })
+            );
+            assert.ok(
+                reloaded.branches.has(background),
+                "refs written since the catalog was built must survive the post-switch persist"
+            );
+            assert.ok(reloaded.branches.has(created));
+        });
+    }
+
+    test("reconfiguring keeps an in-flight background refresh alive", async () => {
+        const cache = new BranchCache(new MemoryMemento());
+        await cache.collect(repositories, cacheOptions({ now: 1_000 }));
+        await runGit(repoPaths[0], ["branch", "survives-reconfigure"]);
+        const remote = gatedRemote();
+        const { worker, scheduler, messages } = startWorker(
+            cache,
+            () => cacheOptions({ refreshRemote: remote.refresh })
+        );
+        try {
+            scheduler.fire();
+            await waitUntil(() => remote.started === repositories.length);
+
+            worker.configure();
+            remote.release();
+            await waitUntil(() => scheduler.scheduled === 2);
+
+            assert.deepStrictEqual(messages, []);
+            const catalog = await cache.collect(repositories, cacheOptions({ now: 2_000 }));
+            assert.ok(
+                catalog.branches.has("survives-reconfigure"),
+                "a settings change must not discard the running refresh"
+            );
+        } finally {
+            remote.release();
+            worker.dispose();
+        }
+    });
+
+    test("only schedule settings restart the background timer", () => {
+        const affects = (changed: string) => affectsBackgroundSchedule({
+            affectsConfiguration: (section: string) => section === changed,
+        });
+        assert.ok(affects("multiRepoBranchSwitcher.cache.enabled"));
+        assert.ok(affects("multiRepoBranchSwitcher.cache.backgroundRefreshIntervalSeconds"));
+        assert.strictEqual(affects("multiRepoBranchSwitcher.defaultBranchName"), false);
+        assert.strictEqual(affects("multiRepoBranchSwitcher.prune.cutoffDays"), false);
+        assert.strictEqual(affects("multiRepoBranchSwitcher.cache.ttlSeconds"), false);
+    });
+
+    test("reports when Git repository discovery fails, once per outage", async () => {
+        const cache = new BranchCache(new MemoryMemento());
+        let available = false;
+        const { worker, scheduler, messages } = startWorker(cache, cacheOptions, async (reportFailure) => {
+            if (available) {
+                return repositories;
+            }
+            reportFailure("Unable to load Git extension");
+            return undefined;
+        });
+        try {
+            scheduler.fire();
+            await waitUntil(() => scheduler.scheduled === 2);
+            assert.deepStrictEqual(
+                messages,
+                ["Background refresh skipped: Unable to load Git extension"]
+            );
+
+            scheduler.fire();
+            await waitUntil(() => scheduler.scheduled === 3);
+            assert.strictEqual(messages.length, 1, "an ongoing outage is logged once");
+
+            available = true;
+            scheduler.fire();
+            await waitUntil(() => scheduler.scheduled === 4);
+            assert.strictEqual(messages.length, 2);
+            assert.match(messages[1], /resumed/);
+        } finally {
+            worker.dispose();
+        }
+    });
+
+    test("reads a cache written before entries carried revisions", async () => {
+        const state = new MemoryMemento();
+        const key = repositoryCacheKey(repoPaths[0]);
+        // Exactly the shape 0.3.1 persisted: no nextRevision, no entry revision.
+        await state.update("branchCache.v1", {
+            version: 1,
+            repositories: {
+                [key]: {
+                    root: repoPaths[0],
+                    updatedAt: 1_000,
+                    local: ["main"],
+                    remote: ["main"],
+                },
+            },
+        });
+        const cache = new BranchCache(state);
+
+        const catalog = await cache.collect([repositories[0]], cacheOptions({ now: 2_000 }));
+
+        assert.ok(catalog.branches.has("main"));
+        assert.strictEqual(catalog.repositoryRevision.get(key), 0);
+        catalog.byRepository.get(key)!.local.add("after-migration");
+        await cache.persistLocalChanges(catalog);
+        const reloaded = await new BranchCache(state).collect(
+            [repositories[0]],
+            cacheOptions({ now: 2_500 })
+        );
+        assert.ok(reloaded.branches.has("after-migration"));
+    });
+
     function createRepository(repoPath: string): ApiRepository {
         return {
             rootUri: { fsPath: repoPath },
@@ -368,7 +713,75 @@ suite("Branch cache and switching integration", () => {
             },
         };
     }
+
+    /** Cached for a day; background workers built from it tick every 100 ms. */
+    function cacheOptions(extra: Partial<BackgroundRefreshOptions> = {}): BackgroundRefreshOptions {
+        return { enabled: true, ttlMs: DAY_MS, intervalMs: 100, ...extra };
+    }
+
+    /** A forced refresh that blocks inside the remote step until released. */
+    function forcedLoad(
+        remote: ReturnType<typeof gatedRemote>,
+        cancellationToken?: vscode.CancellationToken
+    ): CacheOptions {
+        return {
+            enabled: true,
+            ttlMs: 0,
+            forceRefresh: true,
+            refreshRemote: remote.refresh,
+            cancellationToken,
+        };
+    }
+
+    function startWorker(
+        cache: BranchCache,
+        options: () => BackgroundRefreshOptions,
+        provider: RepositoryProvider = async () => repositories
+    ) {
+        const scheduler = new FakeScheduler();
+        const messages: string[] = [];
+        const worker = new BackgroundRefresh(
+            cache,
+            provider,
+            options,
+            (message) => messages.push(message),
+            scheduler.schedule
+        );
+        return { worker, scheduler, messages };
+    }
 });
+
+/** A remote step that blocks until released and counts the repositories that reached it. */
+function gatedRemote() {
+    const { gate, release } = createGate();
+    const remote = {
+        started: 0,
+        release,
+        refresh: async () => {
+            remote.started++;
+            await gate;
+        },
+    };
+    return remote;
+}
+
+function createGate(): { gate: Promise<void>; release: () => void } {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    return { gate, release };
+}
+
+function delay(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitUntil(condition: () => boolean): Promise<void> {
+    const deadline = Date.now() + 10_000;
+    while (!condition()) {
+        assert.ok(Date.now() < deadline, "condition was not met within 10 s");
+        await delay(10);
+    }
+}
 
 function parseRef(line: string): Ref {
     const [fullName, commit] = line.split("|");

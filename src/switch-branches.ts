@@ -3,12 +3,11 @@ import { BranchCache } from "./branch-cache";
 import { collectAllBranches } from "./collect-all-branches";
 import {
     getConfigCacheEnabled,
-    getConfigCacheTtlSeconds,
-    getConfigMaxConcurrentRepositories,
+    getConfigCacheOptions,
     getConfigPreflightEnabled,
     getConfigRemoteRefreshPolicy,
 } from "./config";
-import { assertValidBranchName } from "./git-commands";
+import { assertValidBranchName, errorMessage } from "./git-commands";
 import { getGitRepositories } from "./git-api";
 import { processRepositories } from "./process-repositories";
 import { finishSuccessfulSwitch } from "./post-switch";
@@ -55,8 +54,7 @@ export async function switchBranches(
             if (error instanceof vscode.CancellationError) {
                 return;
             }
-            const message = error instanceof Error ? error.message : String(error);
-            vscode.window.showErrorMessage(`Unable to load branch refs: ${message}`);
+            vscode.window.showErrorMessage(`Unable to load branch refs: ${errorMessage(error)}`);
             return;
         }
         if (catalog.staleRepositories.length > 0) {
@@ -174,8 +172,7 @@ export async function refreshBranchCache(cache: BranchCache): Promise<void> {
         if (error instanceof vscode.CancellationError) {
             return;
         }
-        const message = error instanceof Error ? error.message : String(error);
-        vscode.window.showErrorMessage(`Unable to refresh branch refs: ${message}`);
+        vscode.window.showErrorMessage(`Unable to refresh branch refs: ${errorMessage(error)}`);
         return;
     }
     if (catalog.staleRepositories.length > 0) {
@@ -203,15 +200,13 @@ async function collectWithProgress(
 ): Promise<BranchCatalog> {
     return vscode.window.withProgress(
         {
-            location: vscode.ProgressLocation.Window,
-            title: forceRefresh ? "$(refresh) Refreshing repository refs" : "$(git-branch) Loading repository refs",
+            location: vscode.ProgressLocation.Notification,
+            title: forceRefresh ? "Refreshing repository refs" : "Loading repository refs",
             cancellable: true,
         },
         (progress, cancellationToken) => collectAllBranches(repos, cache, progress, {
-            enabled: getConfigCacheEnabled(),
-            ttlMs: getConfigCacheTtlSeconds() * 1000,
+            ...getConfigCacheOptions(),
             forceRefresh,
-            maxConcurrency: getConfigMaxConcurrentRepositories(),
             cancellationToken,
             refreshRemote: createRemoteRefresher(remoteRefreshPolicy),
         })

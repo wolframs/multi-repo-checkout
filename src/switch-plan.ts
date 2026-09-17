@@ -5,7 +5,7 @@ import {
     getConfigDefaultBranch,
     getConfigMaxConcurrentRepositories,
 } from "./config";
-import { branchExists, checkoutBranch } from "./git-commands";
+import { branchExists, checkoutBranch, errorMessage } from "./git-commands";
 import { repositoryPath } from "./git-api";
 import { isRepoClean } from "./is-repo-clean";
 import { ApiRepository, BranchCatalog, BranchSnapshot } from "./types";
@@ -144,7 +144,7 @@ async function createRepositorySwitchPlan(
         return {
             ...base,
             blocked: "missing",
-            blockedMessage: error instanceof Error ? error.message : String(error),
+            blockedMessage: errorMessage(error),
         };
     }
 }
@@ -170,7 +170,7 @@ async function executeRepositorySwitchPlan(
         snapshot?.local.add(plan.targetBranch!);
         return successMessage(plan);
     } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorMessage(error);
         return `❌ ${plan.repositoryName}: ${message}`;
     }
 }

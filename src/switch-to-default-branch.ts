@@ -5,7 +5,7 @@ import {
     getConfigDefaultBranch,
     getConfigMaxConcurrentRepositories,
 } from "./config";
-import { branchExists, checkoutBranch, runGit } from "./git-commands";
+import { branchExists, checkoutBranch, errorMessage, runGit } from "./git-commands";
 import { getGitRepositories, repositoryPath } from "./git-api";
 import { isRepoClean } from "./is-repo-clean";
 import { finishSuccessfulSwitch } from "./post-switch";
@@ -79,7 +79,7 @@ async function switchRepositoryToDefault(repo: ApiRepository): Promise<string> {
         await checkoutBranch(repoPath, branch.name, branch.source);
         return `✅ ${repoName}: Switched to ${branch.name}`;
     } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
+        const message = errorMessage(error);
         return `❌ ${repoName}: ${message}`;
     }
 }

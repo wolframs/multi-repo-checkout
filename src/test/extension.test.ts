@@ -20,6 +20,12 @@ suite("Extension integration", () => {
         }
 
         const properties = extension.packageJSON.contributes.configuration.properties;
+        assert.strictEqual(properties["multiRepoBranchSwitcher.cache.ttlSeconds"].default, 86_400);
+        assert.strictEqual(
+            properties["multiRepoBranchSwitcher.cache.backgroundRefreshIntervalSeconds"].default,
+            300
+        );
+        assert.ok(extension.packageJSON.activationEvents.includes("onStartupFinished"));
         assert.strictEqual(
             properties["multiRepoBranchSwitcher.preflight.enabled"].default,
             false

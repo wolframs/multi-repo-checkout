@@ -59,6 +59,7 @@ export interface BranchCatalog {
     branches: Set<string>;
     byRepository: Map<string, BranchSnapshot>;
     repositoryNames: Map<string, string>;
+    repositoryRevision: Map<string, number>;
     staleRepositories: string[];
     remoteRefreshFailures: RepositoryFailure[];
 }
