@@ -6,6 +6,10 @@ All notable changes to the "multi-repo-checkout" extension will be documented in
 
 ### [Unreleased]
 
+### [0.4.1] - 2026-09-17
+
+- Configuration: Lower the default required cache rebuild age from 86,400 to 3,600 seconds (one hour), so a workspace left open overnight rebuilds sooner without making every picker open pay for a rebuild
+
 ### [0.4.0] - 2026-09-17
 
 - Performance: Refresh cached refs in the background at a configurable interval (300 seconds by default), respecting the remote fetch policy

@@ -49,7 +49,7 @@ export function getConfigCacheEnabled(): boolean {
 
 export function getConfigCacheTtlSeconds(): number {
     const config = vscode.workspace.getConfiguration(CACHE_SECTION);
-    return clamp(config.get<number>("ttlSeconds", 86_400), 0, Infinity, 86_400);
+    return clamp(config.get<number>("ttlSeconds", 3_600), 0, Infinity, 3_600);
 }
 
 export function getConfigBackgroundRefreshIntervalSeconds(): number {

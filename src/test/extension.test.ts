@@ -20,7 +20,7 @@ suite("Extension integration", () => {
         }
 
         const properties = extension.packageJSON.contributes.configuration.properties;
-        assert.strictEqual(properties["multiRepoBranchSwitcher.cache.ttlSeconds"].default, 86_400);
+        assert.strictEqual(properties["multiRepoBranchSwitcher.cache.ttlSeconds"].default, 3_600);
         assert.strictEqual(
             properties["multiRepoBranchSwitcher.cache.backgroundRefreshIntervalSeconds"].default,
             300
